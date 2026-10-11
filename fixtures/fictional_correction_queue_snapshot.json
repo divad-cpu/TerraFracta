@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_correction_queue_membership",
+  "capturedAt": "2026-10-03T07:12:17.509824+00:00",
+  "liveStatus": false,
+  "earlierCapturedMembers": 4,
+  "capturedMembers": 5,
+  "reports": [
+    {
+      "sample": 1,
+      "revision": 1,
+      "reportedAt": "2026-10-03T07:12:05.310077+00:00",
+      "reviewState": "new"
+    },
+    {
+      "sample": 2,
+      "revision": 1,
+      "reportedAt": "2026-10-03T07:12:05.752267+00:00",
+      "reviewState": "new"
+    },
+    {
+      "sample": 3,
+      "revision": 2,
+      "reportedAt": "2026-10-03T07:12:11.670396+00:00",
+      "reviewState": "new"
+    },
+    {
+      "sample": 4,
+      "revision": 2,
+      "reportedAt": "2026-10-03T07:12:12.074683+00:00",
+      "reviewState": "new"
+    },
+    {
+      "sample": 5,
+      "revision": 2,
+      "reportedAt": "2026-10-03T07:12:16.440955+00:00",
+      "reviewState": "new"
+    }
+  ],
+  "privateDetailsExported": false,
+  "reviewActionsEnabled": false,
+  "sourceRequests": 0,
+  "realReports": 0,
+  "publicContentChanged": false
+}

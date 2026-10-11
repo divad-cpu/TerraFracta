@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_private_parent_api_source_preparation",
+  "recordedAt": "2026-10-03T13:40:22.517416+00:00",
+  "state": "held",
+  "sourceFiles": 85,
+  "privateApiVersion": 2,
+  "sourceBytesVerified": true,
+  "candidateModulesImported": false,
+  "workerExecuted": false,
+  "completeRuntimeSealed": false,
+  "deploymentReviewComplete": false,
+  "operationalContextSelected": false,
+  "copyCoverageAccepted": false,
+  "collectionPermissionIssued": false,
+  "sourceRequests": 0,
+  "publicationEnabled": false,
+  "scheduleEnabled": false,
+  "externalBackup": false
+}

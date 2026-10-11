@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_review_receipt_recovery",
+  "recordedAt": "2026-10-03T07:12:38.170198+00:00",
+  "liveStatus": false,
+  "observations": [
+    {
+      "case": "closure_after_unconsumed_commit",
+      "outcome": "recorded",
+      "currentState": "closed",
+      "historicalState": "closed"
+    },
+    {
+      "case": "historical_start_with_current_closed",
+      "outcome": "recorded",
+      "currentState": "closed",
+      "historicalState": "in_review"
+    },
+    {
+      "case": "never_dispatched_on_new_report",
+      "outcome": "not_observed",
+      "currentState": "new",
+      "historicalState": null
+    },
+    {
+      "case": "same_event_id_different_principal",
+      "outcome": "not_observed",
+      "currentState": "closed",
+      "historicalState": null
+    }
+  ],
+  "readOnlyApplicationRows": true,
+  "writePrivilegeRevoked": true,
+  "missingEventDispatched": false,
+  "historicalEventReopenedReport": false,
+  "privateEventExposedAcrossAccounts": false,
+  "sourceRequests": 0,
+  "modelCalls": 0,
+  "realReports": 0,
+  "publicContentChanged": false,
+  "liveReviewEnabled": false
+}

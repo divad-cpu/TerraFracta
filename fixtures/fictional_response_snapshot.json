@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "isolated_fictional_response_reservations",
+  "recordedAt": "2026-10-01T06:44:15.131703+00:00",
+  "actualSourceFetches": 0,
+  "liveCollectionEnabled": false,
+  "livePublicationEnabled": false,
+  "displayedRuns": 3,
+  "cases": [
+    {
+      "caseKey": "shared_limit",
+      "byteCap": 101,
+      "savedAt": "2026-10-01T05:57:54.921589+00:00",
+      "dispatches": 0,
+      "workClaims": 1,
+      "settlements": 0,
+      "chargedBytes": 101,
+      "reservations": 1
+    },
+    {
+      "caseKey": "measured_replay",
+      "byteCap": 101,
+      "savedAt": "2026-10-01T05:59:55.255509+00:00",
+      "dispatches": 1,
+      "workClaims": 1,
+      "settlements": 1,
+      "chargedBytes": 3,
+      "reservations": 1
+    },
+    {
+      "caseKey": "crash_takeover",
+      "byteCap": 101,
+      "savedAt": "2026-10-01T06:03:55.817963+00:00",
+      "dispatches": 1,
+      "workClaims": 2,
+      "settlements": 0,
+      "chargedBytes": 101,
+      "reservations": 1
+    }
+  ]
+}

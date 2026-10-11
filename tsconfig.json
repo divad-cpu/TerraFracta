@@ -1,0 +1,58 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "next.config.ts",
+    "instrumentation.ts",
+    "instrumentation-client.ts",
+    "src/server/postgres-issue-provider.ts",
+    "src/server/postgres-work-proposal-transport.ts",
+    "src/contact-free-correction-policy.ts",
+    "src/invented-contact-free-custody.ts",
+    "src/invented-contact-free-admission.ts",
+    "src/invented-contact-free-recovery.ts",
+    "src/invented-contact-free-address-identifiers.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "src/invented-contact-free-body-reader.ts",
+    "src/invented-contact-free-preparation-trial.ts",
+    "src/invented-contact-free-clock.ts",
+    "src/contact-free-write-observation.ts",
+    "src/invented-contact-free-write-trial.ts",
+    "src/invented-contact-free-write-recovery.ts",
+    "src/invented-contact-free-shared-inventory.ts",
+    "src/invented-contact-free-shared-restore.ts",
+    "src/invented-contact-free-body-ownership.ts",
+    "src/invented-contact-free-body-handoff.ts",
+    "src/invented-contact-free-shared-write-trial.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_private_ssb_assessment",
+  "recordedAt": "2026-10-02T07:24:36.908979+00:00",
+  "liveStatus": false,
+  "pairStatus": "pending",
+  "retainedPairMatched": true,
+  "candidates": [
+    {
+      "year": 2024,
+      "state": "held"
+    },
+    {
+      "year": 2025,
+      "state": "held"
+    }
+  ],
+  "unresolvedMeanings": [
+    "respondent_count_unit",
+    "fieldwork_period",
+    "upper_band_boundary"
+  ],
+  "numericCellsIncluded": false,
+  "sourceRequests": 0,
+  "modelCalls": 0,
+  "publicQualificationIssued": false,
+  "checkpointAdvanced": false,
+  "publicationEnabled": false
+}

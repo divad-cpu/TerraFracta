@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "isolated_authenticated_fictional_publication",
+  "recordedAt": "2026-10-01T10:53:51.606652+00:00",
+  "realSourceRequests": 0,
+  "livePublicationEnabled": false,
+  "websiteVisibilityVerified": false,
+  "qualifiedFactStored": 1,
+  "withdrawnRightsHeld": 1,
+  "badDisplayRolledBack": true,
+  "expiredPermissionRolledBack": true,
+  "simultaneousAttempts": 2,
+  "resultingActivations": 1,
+  "replayRefetched": false
+}

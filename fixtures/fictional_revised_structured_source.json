@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "series_id": "fictional-share",
+  "geography": "fictional-country",
+  "unit": "percent",
+  "rows": [
+    {"period": "2023", "value": "25.2"},
+    {"period": "2024", "value": "26.1"},
+    {"period": "2025", "value": "28.1"}
+  ]
+}

@@ -1,0 +1,8 @@
+# Optional pinned developer CLI; checks correctness without reformatting code.
+# Installation is isolated from the worker's empty runtime dependency set.
+required-version = "==0.16.9"
+target-version = "py312"
+
+[lint]
+select = ["F601", "F602", "F631", "F632", "F811", "F821", "F822", "F823"]
+unfixable = ["ALL"]

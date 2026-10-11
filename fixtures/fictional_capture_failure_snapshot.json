@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "isolated_fictional_capture_failure",
+  "recordedAt": "2026-10-01T10:10:46.282980+00:00",
+  "finishedAt": "2026-10-01T10:10:46.021174+00:00",
+  "runtimeEnabled": false,
+  "externalSourceRequests": 0,
+  "runState": "partial",
+  "storedFacts": 0,
+  "requiredSources": 2,
+  "coveredSources": 0,
+  "failedSources": 1,
+  "deferredSources": 1,
+  "savedSourceChecks": 2,
+  "savedCloseouts": 1,
+  "readingAllowanceBytes": 65537,
+  "retainedChargeBytes": 65537,
+  "measuredResponseBytes": null,
+  "dependentSourceRequests": 0,
+  "sourceVersions": 0,
+  "expectedFindings": 0
+}

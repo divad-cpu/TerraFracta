@@ -1,0 +1,253 @@
+{
+  "document_type": "planning_candidate_not_runtime_config",
+  "schema_version": "0.1",
+  "as_of": "2026-09-25",
+  "activation_state": "disabled",
+  "notes": "No collector or rights approval is implemented. One exact SSB query is documented as a disabled proposal only. Language lists describe candidate collection scope, not guaranteed full coverage. Independent issue-specific sources remain to be selected.",
+  "sources": [
+    {
+      "source_id": "SRC-WB-INDICATORS",
+      "name": "World Bank Indicators",
+      "publisher": "World Bank",
+      "jurisdiction_scope_label": "international",
+      "candidate_languages": [
+        "en"
+      ],
+      "documentation_url": "https://datahelpdesk.worldbank.org/knowledgebase/articles/889386-developer-information-overview",
+      "documentation_checked_on": "2026-09-24",
+      "documentation_references": [
+        "R01",
+        "R02"
+      ],
+      "proposed_access_method": "api",
+      "source_state": "candidate",
+      "collection_enabled": false,
+      "auto_publication_enabled": false,
+      "endpoint_queries": [],
+      "adapter_id": null,
+      "adapter_version": null,
+      "qualification_record_id": null,
+      "possible_claim_types": [
+        "statistical_observation"
+      ],
+      "qualified_auto_publication_change_types": [],
+      "rights": {
+        "fetch": "unreviewed",
+        "retain": "unreviewed",
+        "model_processing": "unreviewed",
+        "excerpt": "unreviewed",
+        "public_derived_reuse": "unreviewed",
+        "review_record_id": null
+      },
+      "schedule": null,
+      "request_limit": null,
+      "max_response_bytes": null,
+      "review_owner": null,
+      "notes": "Select exact indicators, geographic coverage, metadata and permitted uses; no queries configured."
+    },
+    {
+      "source_id": "SRC-NO-SSB",
+      "name": "Statistics Norway public APIs",
+      "publisher": "Statistics Norway",
+      "jurisdiction_scope_label": "Norway",
+      "candidate_languages": [
+        "en",
+        "nb"
+      ],
+      "documentation_url": "https://www.ssb.no/en/api",
+      "documentation_checked_on": "2026-09-24",
+      "documentation_references": [
+        "R03"
+      ],
+      "proposed_access_method": "api",
+      "source_state": "candidate",
+      "collection_enabled": false,
+      "auto_publication_enabled": false,
+      "endpoint_queries": [],
+      "adapter_id": null,
+      "adapter_version": null,
+      "qualification_record_id": null,
+      "possible_claim_types": [
+        "statistical_observation"
+      ],
+      "qualified_auto_publication_change_types": [],
+      "rights": {
+        "fetch": "unreviewed",
+        "retain": "unreviewed",
+        "model_processing": "unreviewed",
+        "excerpt": "unreviewed",
+        "public_derived_reuse": "unreviewed",
+        "review_record_id": null
+      },
+      "schedule": null,
+      "request_limit": null,
+      "max_response_bytes": null,
+      "review_owner": null,
+      "notes": "Resolve current Statbank/PxWebApi 2 tables, definitions, query contract and revision behaviour."
+    },
+    {
+      "source_id": "SSB-14059-NO-HOUSING-COSTS",
+      "name": "Statistics Norway table 14059, fixed housing-cost burden slice",
+      "publisher": "Statistics Norway",
+      "jurisdiction_scope_label": "Norway",
+      "candidate_languages": [
+        "en",
+        "nb"
+      ],
+      "documentation_url": "https://www.ssb.no/en/api/pxwebapiv2",
+      "documentation_checked_on": "2026-09-25",
+      "documentation_references": [
+        "R03"
+      ],
+      "proposed_access_method": "api",
+      "source_state": "candidate",
+      "collection_enabled": false,
+      "auto_publication_enabled": false,
+      "endpoint_queries": [
+        "https://data.ssb.no/api/pxwebapi/v2/tables/14059/metadata?lang=en",
+        "https://data.ssb.no/api/pxwebapi/v2/tables/14059/data?lang=en&valueCodes%5BEierStatus%5D=0&valueCodes%5BContentsCode%5D=Boutg4%2CBoutg5%2CAntHushSvar&valueCodes%5BTid%5D=2024%2C2025"
+      ],
+      "adapter_id": null,
+      "adapter_version": null,
+      "qualification_record_id": null,
+      "possible_claim_types": [
+        "statistical_observation"
+      ],
+      "qualified_auto_publication_change_types": [],
+      "rights": {
+        "fetch": "unreviewed",
+        "retain": "unreviewed",
+        "model_processing": "unreviewed",
+        "excerpt": "unreviewed",
+        "public_derived_reuse": "unreviewed",
+        "review_record_id": null
+      },
+      "schedule": null,
+      "request_limit": null,
+      "max_response_bytes": null,
+      "review_owner": null,
+      "notes": "The owner completed research/TF005_SSB_SOURCE_REVIEW_RECORD.md for one private-only attempt with public wording held. Access expires at 30 days with accepted running/startup cleanup, now installed and observed. Copy verification and real transport/custodian binding remain unfinished. Runtime registration/rights/qualification fields stay unprovisioned; this disabled planning record grants no execution or public reuse."
+    },
+    {
+      "source_id": "SRC-NO-GOV-RSS",
+      "name": "Norwegian government RSS",
+      "publisher": "Regjeringen.no",
+      "jurisdiction_scope_label": "Norway",
+      "candidate_languages": [
+        "nb",
+        "nn",
+        "en"
+      ],
+      "documentation_url": "https://www.regjeringen.no/no/om-nettstedet/hjelp/rss/id476715/",
+      "documentation_checked_on": "2026-09-24",
+      "documentation_references": [
+        "R04"
+      ],
+      "proposed_access_method": "rss_and_document_retrieval",
+      "source_state": "candidate",
+      "collection_enabled": false,
+      "auto_publication_enabled": false,
+      "endpoint_queries": [],
+      "adapter_id": null,
+      "adapter_version": null,
+      "qualification_record_id": null,
+      "possible_claim_types": [
+        "attributed_announcement",
+        "official_document_discovery"
+      ],
+      "qualified_auto_publication_change_types": [],
+      "rights": {
+        "fetch": "unreviewed",
+        "retain": "unreviewed",
+        "model_processing": "unreviewed",
+        "excerpt": "unreviewed",
+        "public_derived_reuse": "unreviewed",
+        "review_record_id": null
+      },
+      "schedule": null,
+      "request_limit": null,
+      "max_response_bytes": null,
+      "review_owner": null,
+      "notes": "Choose a filtered feed and separate document extraction; not evidence of implementation."
+    },
+    {
+      "source_id": "SRC-NO-STORTING",
+      "name": "Stortinget open data",
+      "publisher": "Stortinget",
+      "jurisdiction_scope_label": "Norway",
+      "candidate_languages": [
+        "nb",
+        "nn"
+      ],
+      "documentation_url": "https://data.stortinget.no/",
+      "documentation_checked_on": "2026-09-24",
+      "documentation_references": [
+        "R05"
+      ],
+      "proposed_access_method": "api",
+      "source_state": "candidate",
+      "collection_enabled": false,
+      "auto_publication_enabled": false,
+      "endpoint_queries": [],
+      "adapter_id": null,
+      "adapter_version": null,
+      "qualification_record_id": null,
+      "possible_claim_types": [
+        "parliamentary_event"
+      ],
+      "qualified_auto_publication_change_types": [],
+      "rights": {
+        "fetch": "unreviewed",
+        "retain": "unreviewed",
+        "model_processing": "unreviewed",
+        "excerpt": "unreviewed",
+        "public_derived_reuse": "unreviewed",
+        "review_record_id": null
+      },
+      "schedule": null,
+      "request_limit": null,
+      "max_response_bytes": null,
+      "review_owner": null,
+      "notes": "Resolve exact endpoints, limits and semantics; an event does not by itself prove a law is in force."
+    },
+    {
+      "source_id": "SRC-UN-M49",
+      "name": "UN M49 country or area codes",
+      "publisher": "UN Statistics Division",
+      "jurisdiction_scope_label": "international",
+      "candidate_languages": [
+        "en"
+      ],
+      "documentation_url": "https://unstats.un.org/unsd/methodology/m49/",
+      "documentation_checked_on": "2026-09-24",
+      "documentation_references": [
+        "R06"
+      ],
+      "proposed_access_method": "reference_dataset",
+      "source_state": "candidate",
+      "collection_enabled": false,
+      "auto_publication_enabled": false,
+      "endpoint_queries": [],
+      "adapter_id": null,
+      "adapter_version": null,
+      "qualification_record_id": null,
+      "possible_claim_types": [
+        "geographic_identifier"
+      ],
+      "qualified_auto_publication_change_types": [],
+      "rights": {
+        "fetch": "unreviewed",
+        "retain": "unreviewed",
+        "model_processing": "unreviewed",
+        "excerpt": "unreviewed",
+        "public_derived_reuse": "unreviewed",
+        "review_record_id": null
+      },
+      "schedule": null,
+      "request_limit": null,
+      "max_response_bytes": null,
+      "review_owner": null,
+      "notes": "Identity reference only; no source of domestic-issue facts or sovereign-recognition decisions."
+    }
+  ]
+}

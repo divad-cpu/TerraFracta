@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_journaled_native_integration",
+  "recordedAt": "2026-10-04T05:19:00.723430+00:00",
+  "entries": [
+    {
+      "scenario": "retained_nominal",
+      "journalState": "pending_held",
+      "state": "stored_pending_closeout_confirmed",
+      "recordedAt": "2026-10-04T05:18:19.028590+00:00",
+      "savedPairs": 1,
+      "nativeCloseoutPresent": true,
+      "returnedResultAccepted": true,
+      "nativeCleanupConfirmed": true
+    },
+    {
+      "scenario": "store_receipt_lost",
+      "journalState": "failed_held",
+      "state": "stored_pending_closeout_unconfirmed",
+      "recordedAt": "2026-10-04T05:18:33.088455+00:00",
+      "savedPairs": 1,
+      "nativeCloseoutPresent": false,
+      "returnedResultAccepted": false,
+      "nativeCleanupConfirmed": true
+    },
+    {
+      "scenario": "journal_finish_receipt_lost",
+      "journalState": "pending_held",
+      "state": "stored_pending_closeout_confirmed",
+      "recordedAt": "2026-10-04T05:18:47.189894+00:00",
+      "savedPairs": 1,
+      "nativeCloseoutPresent": true,
+      "returnedResultAccepted": false,
+      "nativeCleanupConfirmed": true
+    },
+    {
+      "scenario": "owned_cancellation",
+      "journalState": "interrupted_held",
+      "state": "incomplete_before_private_store",
+      "recordedAt": "2026-10-04T05:18:58.398975+00:00",
+      "savedPairs": 0,
+      "nativeCloseoutPresent": false,
+      "returnedResultAccepted": false,
+      "nativeCleanupConfirmed": true
+    }
+  ],
+  "historicalObservationOnly": true,
+  "liveStatus": false,
+  "freshProcessReadback": true,
+  "runtimeAccountsStayedRetired": true,
+  "creatingParentGuardRequested": true,
+  "remoteRollbackAttested": false,
+  "sourceRequests": 0,
+  "originalHttpExecuted": false,
+  "automaticRetry": false,
+  "repairPerformed": false,
+  "publicationEnabled": false
+}

@@ -1,0 +1,9 @@
+[project]
+name = "terrafracta-worker"
+version = "0.0.0"
+description = "TerraFracta local worker and constrained fictional collection rehearsals."
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[tool.uv]
+package = false

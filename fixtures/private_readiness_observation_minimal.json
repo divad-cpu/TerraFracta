@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "private_attempt_readiness_observation",
+  "observedAt": "2026-10-02T06:29:22.395046+00:00",
+  "state": "held",
+  "pointInTimeOnly": true,
+  "checks": {
+    "cleanupSnapshot": {
+      "state": "observed",
+      "reason": "installed_snapshot_matches"
+    },
+    "cleanupUnitBytes": {
+      "state": "observed",
+      "reason": "installed_unit_bytes_match"
+    },
+    "cleanupManager": {
+      "state": "observed",
+      "reason": "installed_cleanup_timer_active_and_last_service_successful"
+    },
+    "cleanupHistory": {
+      "state": "observed",
+      "reason": "recent_matching_completed_cleanup",
+      "finishedAt": "2026-10-02T06:15:00.914065+00:00",
+      "activeAttemptsRemaining": 0,
+      "ageSeconds": 861.480981
+    },
+    "selectedRawFolder": {
+      "state": "observed",
+      "reason": "private_selected_folder_empty",
+      "empty": true,
+      "rawFilesRead": false
+    },
+    "configuredCopies": {
+      "state": "held",
+      "reason": "owner_copy_context_pending",
+      "timeshiftExclusionObserved": true,
+      "rcloneConfigurationPresent": true,
+      "allCopyPathsVerified": false,
+      "credentialFilesRead": false
+    },
+    "liveEntry": {
+      "state": "held",
+      "reason": "reviewed_live_entry_not_bound"
+    },
+    "privateWriter": {
+      "state": "held",
+      "reason": "live_private_writer_not_selected"
+    }
+  },
+  "sourceReviewCompleteForPrivateAttempt": true,
+  "acceptedRetentionDays": 30,
+  "machinePermissionIssued": false,
+  "sourceRequests": 0,
+  "databaseChanged": false,
+  "configurationChanged": false,
+  "publicationEnabled": false,
+  "contentScheduleEnabled": false
+}

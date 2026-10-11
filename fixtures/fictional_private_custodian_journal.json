@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_private_custodian_journal",
+  "recordedAt": "2026-10-03T17:35:37.170267+00:00",
+  "entries": [
+    {
+      "scenario": "missing_finish",
+      "state": "outcome_not_recorded",
+      "recordedAt": "2026-10-03T17:35:37.131526+00:00",
+      "admissionRecorded": false,
+      "finishRecorded": false,
+      "nativeCleanupConfirmed": null
+    },
+    {
+      "scenario": "failed_before_admission",
+      "state": "failed_held",
+      "recordedAt": "2026-10-03T17:35:37.138854+00:00",
+      "admissionRecorded": false,
+      "finishRecorded": true,
+      "nativeCleanupConfirmed": true
+    },
+    {
+      "scenario": "interrupted_after_admission",
+      "state": "interrupted_held",
+      "recordedAt": "2026-10-03T17:35:37.151195+00:00",
+      "admissionRecorded": true,
+      "finishRecorded": true,
+      "nativeCleanupConfirmed": true
+    },
+    {
+      "scenario": "cleanup_unknown",
+      "state": "local_cleanup_unconfirmed",
+      "recordedAt": "2026-10-03T17:35:37.170267+00:00",
+      "admissionRecorded": true,
+      "finishRecorded": true,
+      "nativeCleanupConfirmed": false
+    }
+  ],
+  "historicalObservationOnly": true,
+  "sourceRequests": 0,
+  "nativeQueries": 0,
+  "modelCalls": 0,
+  "originalHttpExecuted": false,
+  "actualNativeFailureObserved": false,
+  "cleanupUncertaintyInjected": true,
+  "automaticRetry": false,
+  "publicationEnabled": false
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "isolated_fictional_closeouts",
+  "recordedAt": "2026-09-30T17:38:53.662405+00:00",
+  "liveCollectionEnabled": false,
+  "livePublicationEnabled": false,
+  "displayedRuns": 3,
+  "sourceContentVersions": 1,
+  "freshSourceChecks": 3,
+  "unchangedSourceChecks": 2,
+  "cases": [
+    {
+      "caseKey": "stored_fact",
+      "runState": "partial",
+      "heldItems": 0,
+      "finishedAt": "2026-09-30T17:34:31.458551+00:00",
+      "commitState": "committed",
+      "storedFacts": 1,
+      "decidedItems": 1,
+      "pendingItems": 0,
+      "visibleFacts": 0,
+      "expectedItems": 1,
+      "coveredSources": 1,
+      "expectedSources": 1,
+      "visibilityState": "pending"
+    },
+    {
+      "caseKey": "held_finished",
+      "runState": "completed",
+      "heldItems": 1,
+      "finishedAt": "2026-09-30T17:16:45.432483+00:00",
+      "commitState": "none",
+      "storedFacts": 0,
+      "decidedItems": 1,
+      "pendingItems": 0,
+      "visibleFacts": 0,
+      "expectedItems": 1,
+      "coveredSources": 1,
+      "expectedSources": 1,
+      "visibilityState": "not_required"
+    },
+    {
+      "caseKey": "missing_decision",
+      "runState": "partial",
+      "heldItems": 0,
+      "finishedAt": "2026-09-30T17:16:45.757772+00:00",
+      "commitState": "none",
+      "storedFacts": 0,
+      "decidedItems": 0,
+      "pendingItems": 1,
+      "visibleFacts": 0,
+      "expectedItems": 1,
+      "coveredSources": 1,
+      "expectedSources": 1,
+      "visibilityState": "not_required"
+    }
+  ]
+}

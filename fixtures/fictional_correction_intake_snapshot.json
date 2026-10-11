@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_correction_intake",
+  "recordedAt": "2026-10-02T18:11:56.115434+00:00",
+  "liveStatus": false,
+  "privateReports": 4,
+  "editions": [
+    {
+      "revision": 1,
+      "privateReports": 2,
+      "targets": [
+        "claim",
+        "page"
+      ],
+      "reviewState": "new"
+    },
+    {
+      "revision": 2,
+      "privateReports": 2,
+      "targets": [
+        "claim",
+        "page"
+      ],
+      "reviewState": "new"
+    }
+  ],
+  "staleEditionRefused": true,
+  "withdrawnSourceRefused": true,
+  "privateReadRefused": true,
+  "reviewStateAssignmentRefused": true,
+  "sourceRequests": 0,
+  "realReports": 0,
+  "contactCollected": false,
+  "publicContentChanged": false,
+  "liveIntakeEnabled": false
+}

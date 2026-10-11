@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_correction_private_review",
+  "recordedAt": "2026-10-03T05:35:29.366590+00:00",
+  "liveStatus": false,
+  "privateReports": 4,
+  "reviewEvents": 3,
+  "states": {
+    "new": 2,
+    "in_review": 1,
+    "closed": 1
+  },
+  "editions": [
+    {
+      "revision": 1,
+      "privateReports": 2,
+      "states": {
+        "new": 1,
+        "in_review": 0,
+        "closed": 1
+      }
+    },
+    {
+      "revision": 2,
+      "privateReports": 2,
+      "states": {
+        "new": 1,
+        "in_review": 1,
+        "closed": 0
+      }
+    }
+  ],
+  "duplicateRequestsRefusedOrReplayed": true,
+  "historicalEventReplayPreservedClosedState": true,
+  "eventsAppendOnly": true,
+  "sourceRequests": 0,
+  "modelCalls": 0,
+  "realReports": 0,
+  "contactCollected": false,
+  "notificationSent": false,
+  "publicContentChanged": false,
+  "liveIntakeEnabled": false,
+  "liveReviewEnabled": false
+}

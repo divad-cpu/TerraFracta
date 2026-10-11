@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "isolated_frozen_fictional_source_capture",
+  "recordedAt": "2026-10-02T05:48:30.800812+00:00",
+  "realSourceRequests": 0,
+  "livePublicationEnabled": false,
+  "websiteVisibilityVerified": false,
+  "reviewedCodeUsed": true,
+  "admittedRequestMatched": true,
+  "pairsStored": 1,
+  "sourceVersions": 2,
+  "rawPairMatched": true,
+  "collectionState": "pending",
+  "processingState": "partial",
+  "faults": [
+    {
+      "scenario": "database_rejected_after_raw",
+      "databasePairStored": false,
+      "rawPairRetained": true,
+      "outcomeHeld": true,
+      "automaticRestage": false
+    },
+    {
+      "scenario": "raw_store_reply_lost",
+      "databasePairStored": true,
+      "rawPairRetained": true,
+      "outcomeHeld": true,
+      "automaticRestage": false
+    },
+    {
+      "scenario": "raw_binding_read_before_commit",
+      "databasePairStored": false,
+      "rawPairRetained": true,
+      "outcomeHeld": true,
+      "automaticRestage": false
+    }
+  ]
+}

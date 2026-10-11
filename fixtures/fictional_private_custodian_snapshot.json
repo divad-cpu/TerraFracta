@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_private_custodian_trial",
+  "recordedAt": "2026-10-02T10:30:09.635165+00:00",
+  "liveStatus": false,
+  "nativeAdmissionChecked": true,
+  "savedPairs": 1,
+  "pendingYears": [
+    2024,
+    2025
+  ],
+  "rawBindingMatched": true,
+  "ownedProcessesEnded": true,
+  "faults": [
+    {
+      "scenario": "metadata_dispatch_receipt_lost",
+      "result": "held",
+      "savedPairs": 0,
+      "savedCloseouts": 0,
+      "automaticRetry": false
+    },
+    {
+      "scenario": "store_receipt_lost",
+      "result": "held",
+      "savedPairs": 1,
+      "savedCloseouts": 0,
+      "automaticRetry": false
+    },
+    {
+      "scenario": "closeout_receipt_lost",
+      "result": "held",
+      "savedPairs": 1,
+      "savedCloseouts": 1,
+      "automaticRetry": false
+    }
+  ],
+  "sourceRequests": 0,
+  "modelCalls": 0,
+  "publicQualificationIssued": false,
+  "checkpointAdvanced": false,
+  "publicationEnabled": false
+}

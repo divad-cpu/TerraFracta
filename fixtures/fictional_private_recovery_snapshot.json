@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "saved_invented_private_attempt_recovery",
+  "recordedAt": "2026-10-02T11:27:47.956242+00:00",
+  "liveStatus": false,
+  "cases": [
+    {
+      "scenario": "before_saving",
+      "state": "incomplete_before_private_store",
+      "savedPairs": 0,
+      "rawIntegrityChecked": false,
+      "nativeCloseoutPresent": false
+    },
+    {
+      "scenario": "saving_reply_lost",
+      "state": "stored_pending_closeout_unconfirmed",
+      "savedPairs": 1,
+      "rawIntegrityChecked": true,
+      "nativeCloseoutPresent": false
+    },
+    {
+      "scenario": "finish_reply_lost",
+      "state": "stored_pending_closeout_confirmed",
+      "savedPairs": 1,
+      "rawIntegrityChecked": true,
+      "nativeCloseoutPresent": true
+    },
+    {
+      "scenario": "completed_sample",
+      "state": "stored_pending_closeout_confirmed",
+      "savedPairs": 1,
+      "rawIntegrityChecked": true,
+      "nativeCloseoutPresent": true
+    }
+  ],
+  "historicalAdmissionOnly": true,
+  "runtimeAccountsStayedRetired": true,
+  "sourceRequests": 0,
+  "automaticRetry": false,
+  "repairPerformed": false,
+  "publicationEnabled": false
+}

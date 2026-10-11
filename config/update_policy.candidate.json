@@ -1,0 +1,72 @@
+{
+  "document_type": "planning_candidate_not_runtime_config",
+  "schema_version": "0.1",
+  "as_of": "2026-09-29",
+  "policy_status": "proposed",
+  "runtime_enabled": false,
+  "publication_enabled": false,
+  "schedule_enabled": false,
+  "chat_trigger_enabled": false,
+  "default_mode": "shadow",
+  "proposed_operation_modes": [
+    "shadow",
+    "publish_eligible"
+  ],
+  "proposed_collection_strategies": [
+    "incremental",
+    "reconcile"
+  ],
+  "active_jurisdiction_ids": [],
+  "proposed_cadence": {
+    "collection": "weekly",
+    "discovery_and_synthesis": "weekly"
+  },
+  "accepted_initial_schedule": {
+    "day_of_week": "monday",
+    "local_time": "08:00",
+    "timezone": "Europe/Oslo"
+  },
+  "active_schedule": null,
+  "operator_timezone": "Europe/Oslo",
+  "machine_timestamp_timezone": "UTC",
+  "limits": {
+    "run_cost_cap": null,
+    "monthly_cost_cap": null,
+    "budget_currency": null,
+    "max_documents_per_run": null,
+    "max_response_bytes": null,
+    "max_model_input_tokens": null,
+    "max_concurrent_runs": null,
+    "max_retries": null,
+    "run_timeout_seconds": null
+  },
+  "missing_critical_limit_behavior": "reject_affected_paid_or_unattended_operation",
+  "automatic_publication_qualification_records": [],
+  "default_prose_extraction_disposition": "held",
+  "default_free_form_synthesis_disposition": "draft",
+  "mandatory_activation_checks": [
+    "authenticated_scope",
+    "current_accepted_policy",
+    "source_approval",
+    "permitted_use",
+    "exact_evidence",
+    "resolved_identity",
+    "units_and_dates",
+    "current_qualification",
+    "material_conflict_check",
+    "consistent_snapshot",
+    "expected_predecessor"
+  ],
+  "automatic_job_forbidden_mutations": [
+    "application_code",
+    "database_schema",
+    "source_approvals",
+    "publication_policy",
+    "credentials",
+    "access_controls",
+    "schedules",
+    "budget_limits"
+  ],
+  "notification_destination": null,
+  "qualification_note": "All source and publication routes remain disabled until accepted and tested. This file is an example specification, not a supported loader contract."
+}

@@ -273,13 +273,16 @@ class PdfCustodyRestoreScopeTests(unittest.TestCase):
     def test_freezer_inert_recursive_sources_and_canonical_mutation_detection(self):
         with TemporaryDirectory() as directory:
             root=Path(directory)/'project';root.mkdir();proof=Path(directory)/'proof';proof.mkdir();(proof/'inputs').mkdir()
-            for name,raw in [(m.ENTRY,b'from workers.child import value\n'),(m.TEST,b'import workers.child\n'),('workers/child.py',b'value=1\n')]:
+            for name,raw in [(m.ENTRY,b'from workers.child import value\n'),(m.TEST,b'import workers.child\n'),('workers/child.py',b'value=1\n'),
+                             ('workers/_pdf_text_worker.py',b'worker=1\n'),('pyproject.toml',b'[project]\nname="invented-restore"\n'),('uv.lock',b'version=1\n')]:
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
             records={};trial=SimpleNamespace(counter=0,identity=None,creation_attempted=False,initializer_attempted=False,
                 proof=proof,frozen={},source_bindings=[],record=lambda n,v:records.setdefault(n,v))
             with self.no_processes(),patch.object(m,'ROOT',root):m.freeze_restore_sources(trial)
-            self.assertEqual(set(trial.frozen),{m.ENTRY,m.TEST,'workers/child.py'})
-            self.assertEqual(len(records['PDF_RESTORE_SOURCE_BINDINGS']),3)
+            self.assertEqual(set(trial.frozen),{m.ENTRY,m.TEST,'workers/child.py','workers/_pdf_text_worker.py','pyproject.toml','uv.lock'})
+            self.assertEqual(len(records['PDF_RESTORE_SOURCE_BINDINGS']),6)
+            for name,raw in trial.frozen.items():
+                self.assertEqual((proof/'inputs'/name).read_bytes(),raw)
             trial.counter=1
             with patch.object(m,'ROOT',root):self.refusal(lambda:m.freeze_restore_sources(trial))
             trial.counter=0;(root/'workers/child.py').write_bytes(b'value=2\n')

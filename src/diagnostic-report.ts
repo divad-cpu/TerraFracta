@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { diagnosticCodes, diagnosticCodesV7, diagnosticCodesV6, diagnosticCodesV5, diagnosticCodesV4, diagnosticCodesV3, diagnosticCodesV2, legacyDiagnosticCodes, diagnosticEventSchema, DIAGNOSTIC_CAPACITY, type DiagnosticCode } from "./error-diagnostics.ts";
+import { diagnosticCodes, diagnosticCodesV8, diagnosticCodesV7, diagnosticCodesV6, diagnosticCodesV5, diagnosticCodesV4, diagnosticCodesV3, diagnosticCodesV2, legacyDiagnosticCodes, diagnosticEventSchema, DIAGNOSTIC_CAPACITY, type DiagnosticCode } from "./error-diagnostics.ts";
 
 const inspectionSchema = z.object({
   events: z.array(diagnosticEventSchema).max(DIAGNOSTIC_CAPACITY + 1),
@@ -18,7 +18,7 @@ export function buildDiagnosticReport(input: unknown, now = new Date()) {
   const counts = Object.fromEntries(Object.keys(diagnosticCodes).map(code => [code,
     events.filter(event => event.code === code).length])) as Record<DiagnosticCode, number>;
   return {
-    schemaVersion: 8 as const, kind: "terrafracta_private_error_export" as const, exportedAt,
+    schemaVersion: 9 as const, kind: "terrafracta_private_error_export" as const, exportedAt,
     archiveState: inspection ? "inspected" as const : "missing" as const,
     inspectionComplete: Boolean(inspection && inspection.stable && !inspection.locked && inspection.unreadable === 0),
     captureCompleteness: "unknown" as const, buildBinding: "not_bound_to_a_deployed_build" as const,
@@ -42,7 +42,7 @@ const reportFields = {
   instructions: z.literal(buildDiagnosticReport(null, new Date(0)).instructions),
   events: z.array(diagnosticEventSchema).max(DIAGNOSTIC_CAPACITY + 1),
 };
-function catalogueFields(catalogue: typeof legacyDiagnosticCodes | typeof diagnosticCodesV2 | typeof diagnosticCodesV3 | typeof diagnosticCodesV4 | typeof diagnosticCodesV5 | typeof diagnosticCodesV6 | typeof diagnosticCodesV7 | typeof diagnosticCodes) {
+function catalogueFields(catalogue: typeof legacyDiagnosticCodes | typeof diagnosticCodesV2 | typeof diagnosticCodesV3 | typeof diagnosticCodesV4 | typeof diagnosticCodesV5 | typeof diagnosticCodesV6 | typeof diagnosticCodesV7 | typeof diagnosticCodesV8 | typeof diagnosticCodes) {
   return {
     counts: z.strictObject(Object.fromEntries(Object.keys(catalogue).map(code => [code, z.number().int().min(0).max(DIAGNOSTIC_CAPACITY + 1)]))),
     locations: z.strictObject(Object.fromEntries(Object.entries(catalogue).map(([code, value]) =>
@@ -57,14 +57,15 @@ const reportSchema = z.discriminatedUnion("schemaVersion", [
   z.strictObject({ ...reportFields, schemaVersion: z.literal(5), ...catalogueFields(diagnosticCodesV5) }),
   z.strictObject({ ...reportFields, schemaVersion: z.literal(6), ...catalogueFields(diagnosticCodesV6) }),
   z.strictObject({ ...reportFields, schemaVersion: z.literal(7), ...catalogueFields(diagnosticCodesV7) }),
-  z.strictObject({ ...reportFields, schemaVersion: z.literal(8), ...catalogueFields(diagnosticCodes) }),
+  z.strictObject({ ...reportFields, schemaVersion: z.literal(8), ...catalogueFields(diagnosticCodesV8) }),
+  z.strictObject({ ...reportFields, schemaVersion: z.literal(9), ...catalogueFields(diagnosticCodes) }),
 ]);
 
 // Revalidate at the web exposure seam even when a future typed reader changes.
 // Canonical catalogue/counts are reconstructed after closed-field validation.
 export function parseDiagnosticReport(input: unknown): DiagnosticReport {
   const value = reportSchema.parse(input);
-  const catalogue = value.schemaVersion === 1 ? legacyDiagnosticCodes : value.schemaVersion === 2 ? diagnosticCodesV2 : value.schemaVersion === 3 ? diagnosticCodesV3 : value.schemaVersion === 4 ? diagnosticCodesV4 : value.schemaVersion === 5 ? diagnosticCodesV5 : value.schemaVersion === 6 ? diagnosticCodesV6 : value.schemaVersion === 7 ? diagnosticCodesV7 : diagnosticCodes;
+  const catalogue = value.schemaVersion === 1 ? legacyDiagnosticCodes : value.schemaVersion === 2 ? diagnosticCodesV2 : value.schemaVersion === 3 ? diagnosticCodesV3 : value.schemaVersion === 4 ? diagnosticCodesV4 : value.schemaVersion === 5 ? diagnosticCodesV5 : value.schemaVersion === 6 ? diagnosticCodesV6 : value.schemaVersion === 7 ? diagnosticCodesV7 : value.schemaVersion === 8 ? diagnosticCodesV8 : diagnosticCodes;
   // A legacy report cannot claim an operation absent from its exact catalogue.
   if (value.events.some(event => !Object.hasOwn(catalogue, event.code))) throw new Error("Invalid diagnostic catalogue");
   if (value.events.length + value.unreadableFiles !== value.filesObserved ||
@@ -75,7 +76,7 @@ export function parseDiagnosticReport(input: unknown): DiagnosticReport {
   const counts = Object.fromEntries(Object.keys(diagnosticCodes).map(code => [code, value.events.filter(event => event.code === code).length])) as DiagnosticReport["counts"];
   if (Object.keys(catalogue).some(code => value.counts[code] !== counts[code as DiagnosticCode])) throw new Error("Invalid diagnostic counts");
   // Normalize only in memory. Original event identity, dates and uncertainty stay.
-  return { ...value, schemaVersion: 8, locations: diagnosticCodes, counts };
+  return { ...value, schemaVersion: 9, locations: diagnosticCodes, counts };
 }
 
 export const DIAGNOSTIC_PAGE_SIZE = 25;

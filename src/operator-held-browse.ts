@@ -1,3 +1,4 @@
+import { heldReferenceQuery } from "./operator-held-reference-search.ts";
 import { captureOwnEnumerableSelectors } from "./own-enumerable-selectors.ts";
 import { auditRunReturnParams, canonicalAuditRunReturn, type OperatorAuditRunReturn } from "./operator-audit-navigation.ts";
 import { heldReasonCodes, heldDecisionScopeSchema, type HeldDecisionScope } from "./operator-held-decisions.ts";
@@ -9,12 +10,13 @@ export function heldReasonFilter(value: unknown): HeldReasonFilter | null {
 
 // Presentation-only filter. The private read remains scoped solely to the exact
 // run/cursor; filtering cannot select a provider or extend its bounded page.
-export function heldBrowseSelection(input: unknown, rethrow?: (error: unknown) => void): { scope: HeldDecisionScope; reason: HeldReasonFilter; runReturn?: Readonly<OperatorAuditRunReturn> } | null {
+export function heldBrowseSelection(input: unknown, rethrow?: (error: unknown) => void): { scope: HeldDecisionScope; reason: HeldReasonFilter; referenceQuery?: string; runReturn?: Readonly<OperatorAuditRunReturn> } | null {
   try {
     if (input === null || typeof input !== "object" || Array.isArray(input)) return null;
     const inputQuery = input as Record<string, unknown>, keys = Object.keys(inputQuery);
-    if (!keys.includes("runId") || keys.some(key => !["runId", "beforeDecidedAt", "beforeDecisionId", "reason", "returnToRuns", "returnBeforeCreatedAt", "returnBeforeRunId"].includes(key))) return null;
+    if (!keys.includes("runId") || keys.some(key => !["runId", "beforeDecidedAt", "beforeDecisionId", "reason", "heldQ", "returnToRuns", "returnBeforeCreatedAt", "returnBeforeRunId", "returnRunState", "returnIssueQ"].includes(key))) return null;
     if (keys.includes("beforeDecidedAt") !== keys.includes("beforeDecisionId")) return null;
+    if ((keys.includes("returnRunState") || keys.includes("returnIssueQ")) && !keys.includes("returnToRuns")) return null;
     const hasReturnCursor = keys.includes("returnBeforeCreatedAt") || keys.includes("returnBeforeRunId");
     if (hasReturnCursor && (!keys.includes("returnToRuns") || keys.includes("returnBeforeCreatedAt") !== keys.includes("returnBeforeRunId"))) return null;
     // Capture only admitted own-enumerable strings once. Validation and the
@@ -22,22 +24,28 @@ export function heldBrowseSelection(input: unknown, rethrow?: (error: unknown) =
     const query = captureOwnEnumerableSelectors(inputQuery, keys, true, rethrow);
     if (query === null) return null;
     const reason = heldReasonFilter(keys.includes("reason") ? query.reason : undefined);
-    if (reason === null) return null;
+    const referenceQuery = heldReferenceQuery(keys.includes("heldQ") ? query.heldQ : undefined);
+    if (reason === null || referenceQuery === null) return null;
     const cursor = keys.includes("beforeDecidedAt") || keys.includes("beforeDecisionId")
       ? { decidedAt: query.beforeDecidedAt, decisionId: query.beforeDecisionId } : null;
     const checked = heldDecisionScopeSchema.safeParse({ runId: query.runId, cursor });
     if (!checked.success) return null;
-    if (!keys.includes("returnToRuns")) return { scope: checked.data, reason };
+    if (!keys.includes("returnToRuns")) return { scope: checked.data, reason, ...(referenceQuery ? { referenceQuery } : {}) };
     if (query.returnToRuns !== "1") return null;
-    const runReturn = canonicalAuditRunReturn({ runId: checked.data.runId, cursor: hasReturnCursor ? { createdAt: query.returnBeforeCreatedAt, runId: query.returnBeforeRunId } : null });
-    return runReturn === null ? null : { scope: checked.data, reason, runReturn };
+    const runReturn = canonicalAuditRunReturn({ runId: checked.data.runId, cursor: hasReturnCursor ? { createdAt: query.returnBeforeCreatedAt, runId: query.returnBeforeRunId } : null, ...(keys.includes("returnRunState") ? { state: query.returnRunState } : {}), ...(keys.includes("returnIssueQ") ? { issueQuery: query.returnIssueQ } : {}) });
+    return runReturn === null ? null : { scope: checked.data, reason, ...(referenceQuery ? { referenceQuery } : {}), runReturn };
   } catch (error) { rethrow?.(error); return null; }
 }
 
-export function heldBrowseHref(scope: HeldDecisionScope, reason: HeldReasonFilter = "", runReturn: OperatorAuditRunReturn | null = null) {
+// Call only with an identity from a checked record. A fragment locates a row
+// in a new read; it does not retain records or change the private read scope.
+export const recordedHoldAnchor = (decisionId: string) => `recorded-hold-${decisionId}`;
+
+export function heldBrowseHref(scope: HeldDecisionScope, reason: HeldReasonFilter = "", runReturn: OperatorAuditRunReturn | null = null, referenceQuery: string = "") {
   const query = new URLSearchParams({ runId: scope.runId });
   if (scope.cursor) { query.set("beforeDecidedAt", scope.cursor.decidedAt); query.set("beforeDecisionId", scope.cursor.decisionId); }
   if (reason) query.set("reason", reason);
+  if (referenceQuery) query.set("heldQ", referenceQuery);
   if (runReturn?.runId === scope.runId) for (const [key, value] of Object.entries(auditRunReturnParams(runReturn))) query.set(key, value);
   return `/editorial-preview/held?${query}`;
 }

@@ -19,13 +19,14 @@ const candidateKeys = [
 // A future server must never render or cache a rejected candidate as an issue.
 export function interpretPublicReadCandidate(input: unknown): PublicReadOutcome {
   if (input === null) return { kind: "absent" };
-  if (typeof input !== "object" || Array.isArray(input)) return { kind: "rejected" };
-  const keys = Object.keys(input).sort();
-  if (keys.length !== candidateKeys.length ||
-      keys.some((key, index) => key !== candidateKeys[index])) {
-    return { kind: "rejected" };
-  }
   try {
+    // Unknown candidates can refuse structural observation before materializing.
+    if (typeof input !== "object" || Array.isArray(input)) return { kind: "rejected" };
+    const keys = Object.keys(input).sort();
+    if (keys.length !== candidateKeys.length ||
+        keys.some((key, index) => key !== candidateKeys[index])) {
+      return { kind: "rejected" };
+    }
     return {
       kind: "issue",
       issue: materializePublicIssueFromRows(input as CandidatePublicReadRows),

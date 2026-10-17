@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';import test from 'node:test';import {readFileSync} from 'node:fs';import {renderToStaticMarkup} from 'react-dom/server';import {loadTsx} from './helpers/tsx_loader.mjs';
+const route=new URL('../app/editorial-preview/html-append-review/page.tsx',import.meta.url);
+test('production and test refuse before HTML composition consumer or view runs',()=>{
+ let calls=0;const marker=Error('NOT_FOUND');for(const NODE_ENV of['production','test']){const p=loadTsx(route,n=>n==='next/navigation'?{notFound(){throw marker;}}:n==='../../../src/html-appended-issue-review-view.tsx'?{HtmlAppendedIssueReviewView(){calls++;throw Error('VIEW');}}:undefined,{env:{NODE_ENV}});assert.throws(()=>p.default(),e=>e===marker);}assert.equal(calls,0);
+});
+test('fixed invented development page connects HTML history and desk without editorial action',()=>{
+ const p=loadTsx(route,n=>n==='next/navigation'?{notFound(){throw Error('NOT_FOUND');}}:n==='../../../fixtures/fictional-html-appended-issue-review.json'?{default:JSON.parse(readFileSync(new URL('../fixtures/fictional-html-appended-issue-review.json',import.meta.url),'utf8'))}:undefined),h=renderToStaticMarkup(p.default());assert.equal(p.dynamic,'force-dynamic');assert.deepEqual(p.metadata.robots,{index:false,follow:false});for(const t of['development gate is not authentication','HTML whole-issue preparation for review','2 preserved statements'])assert.ok(h.includes(t),t);assert.match(h,/href="\/editorial-preview\/html-preparation-history"/);assert.match(h,/href="\/editorial-preview"/);assert.doesNotMatch(h,/<form|<button|<input/);
+});
+test('HTML historical preparation offers the distinct complete issue review path',()=>assert.match(readFileSync(new URL('../app/editorial-preview/html-preparation-history/page.tsx',import.meta.url),'utf8'),/href="\/editorial-preview\/html-append-review"/));

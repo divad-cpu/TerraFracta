@@ -27,9 +27,24 @@ export function canonicalReadingGuideReturn(input: unknown): string | null {
   } catch { return null; }
 }
 
-export function readingGuideHref(input?: unknown): string {
+// A separate bounded display target. Raw fragments in returnTo remain refused.
+// This identifies a possible in-page destination, not current evidence eligibility.
+export function canonicalReadingGuideAnchor(input: unknown): string | null {
+  if (typeof input !== "string" || input.length > 80) return null;
+  const match = /^(?:claim-([0-9a-fA-F-]{36})|reference-([0-9a-fA-F-]{36})-([1-9]|1[0-2]))$/.exec(input);
+  return match && publicIssueProjectionSchema.shape.issueId.safeParse(match[1] ?? match[2]).success ? input : null;
+}
+export function readingReturnHref(input: unknown, anchor?: unknown): string | null {
   const returnTo = canonicalReadingGuideReturn(input);
-  return returnTo ? `${guidePath}?${new URLSearchParams({ returnTo })}` : guidePath;
+  if (!returnTo) return null;
+  const target = canonicalReadingGuideAnchor(anchor);
+  return target ? `${returnTo}#${target}` : returnTo;
+}
+
+export function readingGuideHref(input?: unknown, anchor?: unknown): string {
+  const returnTo = canonicalReadingGuideReturn(input);
+  const returnAnchor = returnTo ? canonicalReadingGuideAnchor(anchor) : null;
+  return returnTo ? `${guidePath}?${new URLSearchParams({ returnTo, ...(returnAnchor ? { returnAnchor } : {}) })}` : guidePath;
 }
 
 export function currentReadingGuideReturn(issue: PublicIssueProjection, selection: CurrentIssueSelection): string | null {
@@ -43,21 +58,28 @@ export function currentReadingGuideReturn(issue: PublicIssueProjection, selectio
   } catch { return null; }
 }
 
-// Explanatory pages accept only the existing checked return selector. Reject
+// Explanatory pages accept the checked route and optional bounded target. Reject
 // unknown enumerable keys before values; hidden/inherited fields add no target.
-export function readingExplanationReturn(input: unknown, rethrow?: (error: unknown) => void): string | null {
+export function readingExplanationContext(input: unknown, rethrow?: (error: unknown) => void): { returnTo: string; returnAnchor?: string } | null {
   try {
     if (!input || typeof input !== "object" || Array.isArray(input)) return null;
     const values = input as Record<string, unknown>, keys = Object.keys(values);
-    if (keys.some(key => key !== "returnTo") || !keys.includes("returnTo")) return null;
-    return canonicalReadingGuideReturn(values.returnTo);
+    if (keys.some(key => !["returnTo", "returnAnchor"].includes(key)) || !keys.includes("returnTo")) return null;
+    const returnTo = canonicalReadingGuideReturn(values.returnTo);
+    if (!returnTo) return null;
+    const returnAnchor = keys.includes("returnAnchor") ? canonicalReadingGuideAnchor(values.returnAnchor) : null;
+    return { returnTo, ...(returnAnchor ? { returnAnchor } : {}) };
   } catch (error) { rethrow?.(error); return null; }
 }
+export function readingExplanationReturn(input: unknown, rethrow?: (error: unknown) => void): string | null {
+  return readingExplanationContext(input, rethrow)?.returnTo ?? null;
+}
 
-export function readingExplanationHref(page: "methodology" | "sources", input?: unknown): string {
+export function readingExplanationHref(page: "methodology" | "sources", input?: unknown, anchor?: unknown): string {
   const path = page === "sources" ? "/sources" : "/methodology";
   const returnTo = canonicalReadingGuideReturn(input);
-  return returnTo ? `${path}?${new URLSearchParams({ returnTo })}` : path;
+  const returnAnchor = returnTo ? canonicalReadingGuideAnchor(anchor) : null;
+  return returnTo ? `${path}?${new URLSearchParams({ returnTo, ...(returnAnchor ? { returnAnchor } : {}) })}` : path;
 }
 
 // Query admission may fail before its closed fields can be inspected. Keep

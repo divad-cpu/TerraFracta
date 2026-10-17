@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import test from "node:test";
-import ts from "typescript";
+import { loadTsx } from "./helpers/tsx_loader.mjs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parsePublicIssueProjection } from "../src/public-issue-projection.ts";
@@ -10,11 +8,7 @@ import { syntheticReadRows } from "../app/evidence-preview/example.ts";
 
 // The exact presenter, React SSR and a parsed invented display contract. Parsing
 // this fixture grants no source/publication authority. No HTTP or Browser access.
-const source = new URL("../app/issue-evidence.tsx", import.meta.url), exports = {};
-const compiled = ts.transpileModule(readFileSync(source, "utf8"), { compilerOptions: {
-  jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
-} }).outputText;
-new Function("require", "exports", compiled)(createRequire(source), exports);
+const exports = loadTsx(new URL("../app/issue-evidence.tsx", import.meta.url));
 const render = issue => renderToStaticMarkup(createElement(exports.IssueEvidence, { issue }));
 function example() { return parsePublicIssueProjection(structuredClone(syntheticReadRows.envelope)); }
 
@@ -27,9 +21,12 @@ test("actual evidence panel retains statement order and provides unambiguous anc
   const html = render(issue), positions = [];
   const outline = html.match(/<nav class="evidence-outline"[\s\S]*?<\/nav>/)[0];
   const overview = html.match(/<section class="dossier-reading-overview"[\s\S]*?<\/section>/)[0];
+  const limits = html.match(/<section class="publication-limits info-band"[\s\S]*?<\/section>/)[0];
   for (const claim of issue.claims) {
-    // Two reading paths share one unique statement target: outline and overview.
-    assert.equal(html.split(`href="#claim-${claim.id}"`).length - 1, 2);
+    // The original two paths remain; only recorded conflicts gain a limits link.
+    const conflicts = Number(claim.evidence.some(source => source.relation === "contradicts"));
+    assert.equal(html.split(`href="#claim-${claim.id}"`).length - 1, 2 + conflicts);
+    assert.equal(limits.split(`href="#claim-${claim.id}"`).length - 1, conflicts);
     assert.equal(outline.split(`href="#claim-${claim.id}"`).length - 1, 1);
     assert.equal(overview.split(`href="#claim-${claim.id}"`).length - 1, 1);
     assert.equal(html.split(`id="claim-${claim.id}"`).length - 1, 1);

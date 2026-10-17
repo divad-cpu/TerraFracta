@@ -70,7 +70,10 @@ test('held pagination, reason form, clear and fresh links retain only independen
   assert.deepEqual(params(url(html, 'Older held decisions')), { runId: id(1), beforeDecidedAt: report.nextCursor.decidedAt, beforeDecisionId: report.nextCursor.decisionId, reason: 'material_conflict', ...runQuery() });
   assert.deepEqual(params(url(html, 'Start a fresh held-decision read')), { runId: id(1), reason: 'material_conflict', ...runQuery() });
   assert.deepEqual(params(url(html, 'Clear this page’s reason filter')), { runId: id(1), beforeDecidedAt: heldCursor().decidedAt, beforeDecisionId: heldCursor().decisionId, ...runQuery() });
-  const form = html.match(/<form\b[^>]*>[\s\S]*?<\/form>/)[0], fields = Object.fromEntries([...form.matchAll(/<input\b[^>]*>/g)].map(m => { const a = attrs(m[0]); return [a.name, a.value]; }));
+  const form = [...html.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/g)]
+    .find(match => match[0].includes('id="held-reason-filter"'))?.[0];
+  assert.ok(form, "The recorded-reason form must be selected independently of the reference-search form");
+  const fields = Object.fromEntries([...form.matchAll(/<input\b[^>]*>/g)].map(m => { const a = attrs(m[0]); return [a.name, a.value]; }));
   assert.deepEqual(fields, { runId: id(1), ...runQuery(), beforeDecidedAt: heldCursor().decidedAt, beforeDecisionId: heldCursor().decisionId });
   for (const link of links(html).filter(row => row.label === 'Inspect captured proposal')) assert.deepEqual(params(new URL(link.href, 'https://example.invalid')), { ...query(), decisionId: params(new URL(link.href, 'https://example.invalid')).decisionId });
 });

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { ArrowLink, PageIntro } from "../components";
 
-import { readingGuideSelectors, readingExplanationReturn, readingGuideHref } from "../../src/current-reading-guide.ts";
+import { readingGuideSelectors, readingExplanationContext, readingGuideHref, readingReturnHref } from "../../src/current-reading-guide.ts";
 
 export const metadata: Metadata = {
   title: "Methodology and limits",
@@ -12,15 +12,16 @@ export const metadata: Metadata = {
 export default async function Methodology({ searchParams }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 } = {}) {
-  const returnTo = readingExplanationReturn((await readingGuideSelectors(searchParams, unstable_rethrow)).value, unstable_rethrow);
+  const returnContext = readingExplanationContext((await readingGuideSelectors(searchParams, unstable_rethrow)).value, unstable_rethrow);
+  const returnTo = returnContext?.returnTo, returnAnchor = returnContext?.returnAnchor;
 
   return (
     <div className="content-page narrow-page">
       <PageIntro eyebrow="Method and limits" title="How TerraFracta reads an issue">
         <p>A draft public explanation of the evidence structure and planned update process. The actual publication process is still under development.</p>
       </PageIntro>
-      {returnTo && <div className="reader-recovery"><a href={returnTo}>Back to the selected dossier</a><p>Returning checks the current publication again. A changed or withheld edition supplies no earlier statements or references.</p></div>}
-      <div className="info-band"><h2>Understand the terms beside a statement</h2><p>Look up funding, delivery, source conflicts, review dates and numerical comparisons in the reading guide.</p><ArrowLink href={readingGuideHref(returnTo)}>Find a term or a reading question</ArrowLink></div>
+      {returnTo && <div className="reader-recovery"><a href={readingReturnHref(returnTo, returnAnchor)!}>Back to the selected dossier</a><p>Returning checks the current publication again. A changed or withheld edition supplies no earlier statements or references.</p></div>}
+      <div className="info-band"><h2>Understand the terms beside a statement</h2><p>Look up funding, delivery, source conflicts, review dates and numerical comparisons in the reading guide.</p><ArrowLink href={readingGuideHref(returnTo, returnAnchor)}>Find a term or a reading question</ArrowLink></div>
       <div className="method-list">
         <section><span>01</span><div><h2>Choose a scoped issue</h2><p>Define the geography, affected population and measurable problem. Inclusion is based on stated criteria and evidence availability, not a claim that the issue is objectively the country&apos;s largest.</p></div></section>
         <section><span>02</span><div><h2>Trace the response</h2><p>Record dated decisions, funding, implementation and evaluation separately. Identify responsible bodies and link every material claim to its source.</p></div></section>

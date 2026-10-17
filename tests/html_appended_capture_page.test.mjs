@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';import test from 'node:test';import {readFileSync} from 'node:fs';import {renderToStaticMarkup} from 'react-dom/server';import {loadTsx} from './helpers/tsx_loader.mjs';
+const route=new URL('../app/editorial-preview/html-capture-sample/page.tsx',import.meta.url);
+test('nondevelopment gate refuses before saved HTML comparison view executes',()=>{
+ let calls=0;const marker=Error('NOT_FOUND');for(const NODE_ENV of['production','test']){const p=loadTsx(route,n=>n==='next/navigation'?{notFound(){throw marker;}}:n==='../../../src/html-appended-capture-view.tsx'?{HtmlAppendedCaptureView(){calls++;throw Error('VIEW');}}:undefined,{env:{NODE_ENV}});assert.throws(()=>p.default(),e=>e===marker);}assert.equal(calls,0);
+});
+test('invented development route renders complete historical comparison with explicit back paths',()=>{
+ const p=loadTsx(route,n=>n==='next/navigation'?{notFound(){throw Error('NOT_FOUND');}}:n==='../../../fixtures/fictional-html-appended-capture.json'?{default:JSON.parse(readFileSync(new URL('../fixtures/fictional-html-appended-capture.json',import.meta.url),'utf8'))}:undefined),h=renderToStaticMarkup(p.default());assert.equal(p.dynamic,'force-dynamic');assert.deepEqual(p.metadata.robots,{index:false,follow:false});assert.match(h,/development gate is not authentication/);assert.match(h,/Saved HTML whole-issue composition comparison/);assert.match(h,/href="\/editorial-preview\/html-append-review"/);assert.match(h,/href="\/editorial-preview"/);assert.doesNotMatch(h,/<form|<button|<input/);
+});
+test('unexecuted HTML composition offers a labelled separate saved-comparison example',()=>assert.match(readFileSync(new URL('../app/editorial-preview/html-append-review/page.tsx',import.meta.url),'utf8'),/href="\/editorial-preview\/html-capture-sample"/));

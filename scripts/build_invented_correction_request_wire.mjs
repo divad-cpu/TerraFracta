@@ -31,8 +31,11 @@ const requests = [issue.claims[0].id, null].map((claimId, index) => {
   const find = (tree, type, suffix) => elements(tree).find(item => item.type === type && (!suffix || item.props.id?.endsWith(suffix)));
   let tree = harness.render();
   find(tree, "select", "claim").props.onChange({ target: { value: claimId ?? "" } });
+  tree = harness.render();
   find(tree, "select", "kind").props.onChange({ target: { value: fields.kind } });
+  tree = harness.render();
   find(tree, "textarea").props.onChange({ target: { value: fields.details } });
+  tree = harness.render();
   find(tree, "input", "source").props.onChange({ target: { value: fields.sourceUrl } });
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
   try {

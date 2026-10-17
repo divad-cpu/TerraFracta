@@ -13,7 +13,7 @@ const View = loadTsx(new URL("../src/current-issue-navigation-view.tsx", import.
 function issue(change = () => {}) { const envelope = structuredClone(syntheticReadRows.envelope); change(envelope.publication.snapshot); return parsePublicIssueProjection(envelope); }
 const render = (record, view, query = {}, decision = { status: 200, cacheControl: "no-store", issue: record }) =>
   renderToStaticMarkup(createElement(View, { decision, selection: currentIssueSelection(view, { edition: record.publicationId, ...query }), latestHref: currentIssueHref(record, view, false) }));
-const links = html => [...html.matchAll(/href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m => ({ url: new URL(m[1].replaceAll("&amp;", "&"), "https://example.invalid"), text: m[2] }));
+const links = html => [...html.matchAll(/<a\b[^>]*\shref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(m => ({ url: new URL(m[1].replaceAll("&amp;", "&"), "https://example.invalid"), text: m[2].replace(/<[^>]*>/g, "").replaceAll("&amp;", "&") }));
 const selectedLink = (html, text) => { const link = links(html).find(row => row.text === text); assert.ok(link, text); return link.url; };
 const query = url => Object.fromEntries(url.searchParams);
 const backLink = html => { const link = links(html).find(row => row.text.startsWith("Back to selected ")); assert.ok(link, "Explicit selected-results return"); return link.url; };

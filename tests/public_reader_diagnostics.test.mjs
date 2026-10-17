@@ -103,10 +103,10 @@ test('actual issue and status handlers preserve one lower-reader diagnostic and 
 
 test('exact historical v1-v5 exports remain unchanged; report v8 rejects mixed, partial and future contracts',()=>{
  const fixed=new Date('2026-10-05T18:49:00.000Z'),event=makeDiagnosticEvent(code,'00000000-0000-4000-8000-000000000001',fixed);
- assert.equal(Object.keys(diagnosticCodesV5).length,23);assert.equal(Object.keys(diagnosticCodes).length,33);
+ assert.equal(Object.keys(diagnosticCodesV5).length,23);assert.equal(Object.keys(diagnosticCodes).length,34);
  for(let version=1;version<=5;version++){
   const path=new URL(`../fixtures/diagnostics/report-v${version}.sample.json`,import.meta.url),original=readFileSync(path),old=JSON.parse(original),value=parseDiagnosticReport(old);
-  assert.equal(value.schemaVersion,8);assert.equal(value.counts[code],0);assert.deepEqual(value.events,old.events);assert.equal(value.captureCompleteness,'unknown');assert.equal(value.buildBinding,'not_bound_to_a_deployed_build');
+  assert.equal(value.schemaVersion,9);assert.equal(value.counts[code],0);assert.deepEqual(value.events,old.events);assert.equal(value.captureCompleteness,'unknown');assert.equal(value.buildBinding,'not_bound_to_a_deployed_build');
   assert.deepEqual(readFileSync(path),original);assert.throws(()=>parseDiagnosticReport({...old,events:[event],filesObserved:1}));
   assert.throws(()=>parseDiagnosticReport({...old,schemaVersion:6}));
   if(version===5)assert.equal(createHash('sha256').update(original).digest('hex'),'c3cd8670d3aad9e87adac05943d82a8cdbe68af3286ee9e542f275f8d1825ca9');
@@ -115,7 +115,7 @@ test('exact historical v1-v5 exports remain unchanged; report v8 rejects mixed, 
  assert.deepEqual(parseDiagnosticReport(report),report);
  const noCount=structuredClone(report);delete noCount.counts[code];const noLocation=structuredClone(report);delete noLocation.locations[code];
  const wrongLabel=structuredClone(report);wrongLabel.locations[code].location='PRIVATE_LABEL_CANARY';
- for(const bad of [noCount,noLocation,wrongLabel,{...report,schemaVersion:5},{...report,schemaVersion:9}])assert.throws(()=>parseDiagnosticReport(bad));
+ for(const bad of [noCount,noLocation,wrongLabel,{...report,schemaVersion:5},{...report,schemaVersion:10}])assert.throws(()=>parseDiagnosticReport(bad));
  for(const changes of [{locked:true,inspectionComplete:false},{unreadableFiles:1,filesObserved:2,inspectionComplete:false},{archiveState:'missing',events:[],counts:Object.fromEntries(Object.keys(report.counts).map(key=>[key,0])),filesObserved:0,inspectionComplete:false}]){
   const value=parseDiagnosticReport({...report,...changes});for(const key of Object.keys(changes))assert.deepEqual(value[key],changes[key]);assert.equal(value.captureCompleteness,'unknown');
  }
@@ -138,7 +138,7 @@ test('actual current-status read persists its fixed identity through private exp
  const handler=createCurrentIssueStatusHandler(createPublicIssueReader(async()=>{throw Error('PRIVATE_SQL_PATH_CANARY');},undefined,save),save);
  const response=await handler(request('current-issue-status'),context(),'development');assert.equal(response.status,503);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(await wait.promise,'saved');
  const output=join(parent,'export.json');await exportErrorLog(directory,output);const raw=await readFile(output),report=readDiagnosticExport(new Uint8Array(raw).buffer);
- assert.equal(report.schemaVersion,8);assert.equal(report.events.length,1);assert.equal(report.counts[code],1);assert.doesNotMatch(raw.toString(),/PRIVATE_|password|stack|sample-issue/);
+ assert.equal(report.schemaVersion,9);assert.equal(report.events.length,1);assert.equal(report.counts[code],1);assert.doesNotMatch(raw.toString(),/PRIVATE_|password|stack|sample-issue/);
  assert.deepEqual(Object.keys(report.events[0]).sort(),['code','eventId','occurredAt','origin','schemaVersion']);
  const selection=diagnosticSelection({code,origin:'server'}),selected=selectDiagnosticEvents(report,selection);assert.equal(selected.total,1);assert.equal(selected.groups[0].location,'current issue / read checked publication');
  const source=new URL('../src/diagnostic-records-view.tsx',import.meta.url),native=createRequire(source),exports={};

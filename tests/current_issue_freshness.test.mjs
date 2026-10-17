@@ -1,3 +1,4 @@
+import { readerWrapperLifetime } from "./helpers/reader_wrapper_lifetime.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
@@ -127,10 +128,11 @@ test("an aborted status body read cancels its owned stream even when the fake tr
 });
 test("actual current wrapper removes every child and cleans visibility ownership after a held result", async () => {
   const expected = currentIssueIdentity((await decisionFor(sample())).issue), c = controls(), listeners = new Map(); let state = { kind: "current" }, effect, cleanup, payload = { schemaVersion: 1, kind: "current", ...expected };
+  const lifetime = readerWrapperLifetime(callback => { effect = callback; });
   const originalDocument = globalThis.document;
   globalThis.document = { visibilityState: "visible", addEventListener(name, callback) { listeners.set(name, callback); }, removeEventListener(name, callback) { assert.equal(listeners.get(name), callback); listeners.delete(name); } };
   try {
-    const wrapper = load("../app/reader-preview/CurrentIssueEdition.tsx", name => name === "react" ? { ...React, useState: () => [state, value => { state = value; }], useEffect: fn => { effect = fn; } } : name.endsWith("current-issue-watch.ts") ? { startCurrentIssueWatch: (identity, changed, read) => startCurrentIssueWatch(identity, changed, read, controlled(c)) } : name.endsWith("current-issue-status.ts") ? { requestCurrentIssueStatus: async () => payload } : undefined).CurrentIssueEdition;
+    const wrapper = load("../app/reader-preview/CurrentIssueEdition.tsx", name => name === "react" ? { ...React, useState: () => [state, value => { state = value; }], ...lifetime } : name.endsWith("current-issue-watch.ts") ? { startCurrentIssueWatch: (identity, changed, read) => startCurrentIssueWatch(identity, changed, read, controlled(c)) } : name.endsWith("current-issue-status.ts") ? { requestCurrentIssueStatus: async () => payload } : undefined).CurrentIssueEdition;
     const props = { expected, latestHref: "/reader-preview/imaginary-place/sample-housing-measure/issue", children: createElement("div", null, "VISIBLE_CLAIM_CANARY", createElement("textarea", { defaultValue: "UNSENT_DRAFT_CANARY" }), createElement("a", { href: "https://example.org/private-source-canary" }, "SOURCE_CANARY")) };
     assert.ok(renderToStaticMarkup(wrapper(props)).includes("UNSENT_DRAFT_CANARY")); cleanup = effect(); await flush();
     payload = { schemaVersion: 1, kind: "absent" }; [...c.intervals.values()][0](); await flush();

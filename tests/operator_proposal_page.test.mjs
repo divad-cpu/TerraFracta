@@ -22,7 +22,7 @@ test('real typed reader/page/presenter preserves proposed/current wording, exact
  const html=await h.render(proposalScope());assert.equal(h.calls.length,1);
  for(const text of ['The invented share was 7.5%.','The invented share was 8.2%.','Conflicting evidence','invented row 2','Unreviewed.',
   'Language not recorded','Missing conflicting evidence is not evidence of agreement','Proposed content — unverified'])assert.ok(html.includes(text),text);
- assert.ok(!html.includes('<button'));assert.ok(!html.includes('<form'));assert.ok(!html.includes('href="https://example.org'));
+ assert.ok(html.includes('Prepare missing dossier scope — unsent'));assert.ok(html.includes('<button type="button" disabled="">Review scope draft'));assert.ok(!html.includes('<form'));assert.ok(!html.includes('href="https://example.org'));
  const back=[...html.matchAll(/href="([^"]+)"/g)].find(x=>x[1].startsWith('/editorial-preview/held?'))[1].replaceAll('&amp;','&');
  assert.deepEqual(Object.fromEntries(new URL(back,'https://example.invalid').searchParams),{runId:proposalId(1)});
 });

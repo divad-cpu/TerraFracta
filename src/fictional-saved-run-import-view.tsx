@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { readFictionalSavedRun, SAVED_RUN_FILE_BYTE_LIMIT } from "./fictional-saved-run-import.ts";
 import type { FictionalUpdateResult } from "./fictional-update-result.ts";
 import { withLocalRequestDeadline } from "./local-request-deadline.ts";
+import { cancelLocalFileRead } from "./local-file-cancellation.ts";
 import { FictionalSavedRunView } from "./fictional-saved-run-view.tsx";
 import { SavedRunComparison } from "../app/editorial-preview/saved-run-comparison.tsx";
 
@@ -13,6 +14,7 @@ type Slot = { generation: number; pending: AbortController | null; result: Ficti
 const sides: Side[] = ["selected", "earlier"];
 const labels = { selected: "Selected saved run", earlier: "Earlier run for comparison" };
 const idle = (): Record<Side, View> => ({ selected: { state: "idle" }, earlier: { state: "idle" } });
+const physicalSavedFileReads: Record<Side, Promise<void> | null> = { selected: null, earlier: null };
 
 // Separate from the archive desk: reopening a file cannot add a receipt or
 // supply authentication, source truth, current publication or an action port.
@@ -34,48 +36,66 @@ export function FictionalSavedRunImportView() {
     slots.current[side].result === views[side].result && slots.current[side].pending === null;
   function clear(side: Side) {
     if (!ownsView(side)) return;
-    const slot = slots.current[side]; slot.generation++; slot.result = null; slot.pending?.abort();
+    const slot = slots.current[side]; slot.generation++; slot.result = null; cancelLocalFileRead(slot.pending);
     setRecorded(old => ({ ...old, [side]: { state: "idle" } }));
   }
   async function select(side: Side, file: File | undefined) {
     if (!ownsView(side)) return;
     if (!file) { clear(side); return; }
     const slot = slots.current[side]; slot.generation++; slot.result = null;
-    if (slot.pending) {
-      slot.pending.abort(); setRecorded(old => ({ ...old, [side]: { state: "busy" } })); return;
+    if (slot.pending || physicalSavedFileReads[side]) {
+      cancelLocalFileRead(slot.pending); setRecorded(old => ({ ...old, [side]: { state: "busy" } })); return;
     }
-    const generation = slot.generation, controller = new AbortController(); slot.pending = controller;
+    const generation = slot.generation;
     const current = () => visit.current === owner && generation === slot.generation;
+    let controller: AbortController;
+    try { controller = new AbortController(); }
+    catch { if (current()) setRecorded(old => ({ ...old, [side]: { state: "held" } })); return; }
+    slot.pending = controller;
     setReading(old => ({ ...old, [side]: true })); setRecorded(old => ({ ...old, [side]: { state: "reading" } }));
+    let settled: Promise<void> | null = null;
+    let releaseOwnedRead = () => {};
     try {
-      const result = await withLocalRequestDeadline(controller.signal, 8_000, async signal => {
+      settled = new Promise<void>(resolve => { releaseOwnedRead = resolve; });
+      physicalSavedFileReads[side] = settled;
+      const read = withLocalRequestDeadline(controller.signal, 8_000, async signal => {
         const size = file.size;
         if (!Number.isSafeInteger(size) || size < 2 || size > SAVED_RUN_FILE_BYTE_LIMIT) throw new Error("Saved file size refused");
         const bytes = await file.slice(0, SAVED_RUN_FILE_BYTE_LIMIT + 1).arrayBuffer();
         if (signal.aborted || !current()) throw new Error("Saved file read retired");
         return readFictionalSavedRun(bytes, size);
       }, undefined, () => {
-        controller.abort();
+        cancelLocalFileRead(controller);
         if (current()) setRecorded(old => ({ ...old, [side]: { state: "held" } }));
       });
+      const result = await read;
       if (current()) { slot.result = result; setRecorded(old => ({ ...old, [side]: { state: "loaded", result } })); }
     } catch {
       if (current()) setRecorded(old => ({ ...old, [side]: { state: "held" } }));
     } finally {
+      releaseOwnedRead();
+      if (settled !== null && physicalSavedFileReads[side] === settled) physicalSavedFileReads[side] = null;
       if (slot.pending === controller) {
         slot.pending = null;
         if (visit.current !== null) setReading(old => ({ ...old, [side]: false }));
       }
     }
   }
+  // Retire local file access and callbacks during committed unmount.
+  useLayoutEffect(() => () => { visit.current = null; for (const side of sides) { const slot = slots.current[side]; slot.generation++; slot.result = null; cancelLocalFileRead(slot.pending); } }, []);
   useEffect(() => {
     const current = {}; visit.current = current; setOwner(current);
     for (const side of sides) { slots.current[side].generation++; slots.current[side].result = null; }
-    setRecorded(idle()); setReading({ selected: slots.current.selected.pending !== null, earlier: slots.current.earlier.pending !== null });
+    setRecorded(idle()); setReading({ selected: slots.current.selected.pending !== null || physicalSavedFileReads.selected !== null,
+      earlier: slots.current.earlier.pending !== null || physicalSavedFileReads.earlier !== null });
+    for (const side of sides) if (physicalSavedFileReads[side] && slots.current[side].pending === null) void (async () => {
+      while (physicalSavedFileReads[side]) await physicalSavedFileReads[side];
+      if (visit.current === current && slots.current[side].pending === null) setReading(old => ({ ...old, [side]: false }));
+    })();
     return () => {
       if (visit.current !== current) return;
       visit.current = null;
-      for (const side of sides) { const slot = slots.current[side]; slot.generation++; slot.result = null; slot.pending?.abort(); }
+      for (const side of sides) { const slot = slots.current[side]; slot.generation++; slot.result = null; cancelLocalFileRead(slot.pending); }
     };
   }, []);
   return <section className="completion-results" aria-labelledby={`${prefix}-heading`}>

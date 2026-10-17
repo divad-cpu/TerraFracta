@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { FictionalUpdateRequestError, requestFictionalUpdate } from "../../src/fictional-update-request";
 import type { FictionalUpdateResult, FictionalUpdateScenario } from "../../src/fictional-update-result";
 import { updateRunReportSchema, type UpdateRunReport } from "../../src/update-run-report";
@@ -9,11 +9,15 @@ import { FictionalHistory } from "./history";
 import { FictionalComparison } from "./comparison";
 import { fictionalOutcomeLabel as outcomeLabel, fictionalReasonLabel as reasonLabel } from "../../src/fictional-decision-labels";
 import { observeClientError } from "../../src/client-error-diagnostics.ts";
+import { cancelLocalObservationRead } from "../../src/local-observation-cancellation.ts";
+
+const physicalUpdateRequest: { current: Promise<void> | null } = { current: null };
 
 export function UpdateOperation({ initialReport }: { initialReport: UpdateRunReport }) {
   const navigationId = useId();
-  const [trigger, setTrigger] = useState<"manual" | "scheduled">("manual");
-  const [scenario, setScenario] = useState<FictionalUpdateScenario>("standard");
+  const [triggerDraft, setTrigger] = useState<{ value: "manual" | "scheduled"; revision: number }>({ value: "manual", revision: 0 });
+  const [scenarioDraft, setScenario] = useState<{ value: FictionalUpdateScenario; revision: number }>({ value: "standard", revision: 0 });
+  const trigger = triggerDraft.value, scenario = scenarioDraft.value;
   const [recordedResult, setResult] = useState<FictionalUpdateResult | null>(null);
   const [viewingSaved, setViewingSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,23 +31,53 @@ export function UpdateOperation({ initialReport }: { initialReport: UpdateRunRep
   const [navigationFailureVisit, setNavigationFailureVisit] = useState<object | null>(null);
   const currentSavedVisit = useRef<object | null>(null), reportedNavigationVisit = useRef<object | null>(null);
   const comparisonVisit = useRef(0), selectedComparisonVisit = comparisonVisit.current;
+  const triggerRevision = useRef(0), scenarioRevision = useRef(0);
+  const committedChoices = useRef({ trigger: triggerDraft.revision, scenario: scenarioDraft.revision });
+  const choicesRepresented = triggerDraft.revision === triggerRevision.current && scenarioDraft.revision === scenarioRevision.current;
   const admitted = owner !== null && visit.current === owner;
   const result = admitted && observation.current === recordedResult ? recordedResult : null;
   const ownsVisit = () => admitted && visit.current === owner;
+  const ownsChoices = () => ownsVisit() && physicalUpdateRequest.current === null && triggerDraft.revision === triggerRevision.current &&
+    scenarioDraft.revision === scenarioRevision.current;
+  const chooseTrigger = (value: "manual" | "scheduled") => {
+    if (!ownsVisit() || controller.current !== null || physicalUpdateRequest.current !== null) return;
+    const revision = ++triggerRevision.current;
+    setTrigger(old => ownsVisit() ? { value, revision } : old);
+  };
   const ownsComparison = () => ownsVisit() && controller.current === null && result !== null &&
     observation.current === result && comparisonVisit.current === selectedComparisonVisit;
   const ownsSavedVisit = () => ownsVisit() && controller.current === null && viewingSaved && result !== null &&
     observation.current === result && savedVisit !== null && currentSavedVisit.current === savedVisit;
+  useLayoutEffect(() => {
+    // Only committed choice packets can survive an effect re-admission.
+    committedChoices.current = { trigger: triggerDraft.revision, scenario: scenarioDraft.revision };
+  }, [triggerDraft, scenarioDraft]);
+  useLayoutEffect(() => () => {
+    triggerRevision.current = committedChoices.current.trigger;
+    scenarioRevision.current = committedChoices.current.scenario;
+    visit.current = null; observation.current = null; currentSavedVisit.current = null;
+    comparisonVisit.current++; cancelLocalObservationRead(controller.current);
+  }, []);
   useEffect(() => {
     const current = {};
     visit.current = current; setOwner(current); observation.current = null; comparisonVisit.current++;
     currentSavedVisit.current = null; setSavedVisit(null);
     setResult(null); setViewingSaved(false); setError(null);
-    setMessage("The saved example is shown below. Start a rehearsal to calculate a fresh result.");
-    setBusy(controller.current !== null);
+    const occupied = physicalUpdateRequest.current !== null;
+    setMessage(occupied || controller.current !== null
+      ? "The previous rehearsal request is still finishing. A saved receipt may exist; load recent runs after it settles."
+      : "The saved example is shown below. Start a rehearsal to calculate a fresh result.");
+    setBusy(controller.current !== null || occupied);
+    if (occupied && controller.current === null) void (async () => {
+      while (physicalUpdateRequest.current) await physicalUpdateRequest.current;
+      if (visit.current === current && controller.current === null) {
+        setBusy(false);
+        setMessage("The previous request is no longer pending here. A saved receipt may exist; load recent runs before another rehearsal.");
+      }
+    })();
     return () => {
       if (visit.current !== current) return;
-      visit.current = null; observation.current = null; currentSavedVisit.current = null; comparisonVisit.current++; controller.current?.abort();
+      visit.current = null; observation.current = null; currentSavedVisit.current = null; comparisonVisit.current++; cancelLocalObservationRead(controller.current);
     };
   }, []);
   useEffect(() => {
@@ -69,19 +103,31 @@ export function UpdateOperation({ initialReport }: { initialReport: UpdateRunRep
   const unchanged = report.items.filter((entry) => entry.outcome === "unchanged").length;
 
   async function run() {
-    if (!ownsVisit() || busy || controller.current !== null) return;
-    const active = new AbortController();
+    if (!ownsChoices() || busy || controller.current !== null || physicalUpdateRequest.current !== null) return;
+    let active: AbortController;
+    try { active = new AbortController(); }
+    catch {
+      if (ownsChoices() && controller.current === null && physicalUpdateRequest.current === null) {
+        setError("The local rehearsal could not be started. No request was sent.");
+        setMessage("No fresh result was calculated. The previous result is still shown.");
+      }
+      return;
+    }
     comparisonVisit.current++;
     controller.current = active;
     currentSavedVisit.current = null; setSavedVisit(null);
     setBusy(true);
     setError(null);
     setMessage("Running the fictional source through the shared checks…");
+    let settled: Promise<void> | null = null, releaseRead = () => {};
     try {
-      const fresh = await requestFictionalUpdate(trigger, scenario, active.signal, () => {
+      settled = new Promise<void>(resolve => { releaseRead = resolve; });
+      physicalUpdateRequest.current = settled;
+      const read = requestFictionalUpdate(trigger, scenario, active.signal, () => {
         if (visit.current === owner && controller.current === active && !active.signal.aborted)
           setMessage("The response deadline elapsed. The original request is still finishing; another rehearsal cannot start yet. A saved receipt may exist.");
       });
+      const fresh = await read;
       if (visit.current !== owner || controller.current !== active || active.signal.aborted) return;
       observation.current = fresh; setResult(fresh);
       setViewingSaved(false);
@@ -96,12 +142,17 @@ export function UpdateOperation({ initialReport }: { initialReport: UpdateRunRep
         "The response could not be confirmed. A saved receipt may exist. Load recent runs before starting another rehearsal.");
       setMessage("No fresh result was confirmed. The previous result is still shown.");
     } finally {
+      releaseRead();
+      if (settled !== null && physicalUpdateRequest.current === settled) physicalUpdateRequest.current = null;
       if (controller.current === active) {
         // Settlement retires callbacks captured while this physical slot was busy.
         comparisonVisit.current++;
         controller.current = null;
         // A successor receives availability, never this retired request's data.
-        if (visit.current !== null) setBusy(false);
+        if (visit.current !== null) {
+          setBusy(false);
+          if (visit.current !== owner) setMessage("The previous request is no longer pending here. A saved receipt may exist; load recent runs before another rehearsal.");
+        }
       }
     }
   }
@@ -113,18 +164,22 @@ export function UpdateOperation({ initialReport }: { initialReport: UpdateRunRep
         <form onSubmit={(event) => { event.preventDefault(); void run(); }}>
           <fieldset disabled={!admitted || busy}>
             <legend>Start the rehearsal as</legend>
-            <label><input type="radio" name="trigger" value="manual" checked={trigger === "manual"} onChange={() => { if (ownsVisit() && controller.current === null) setTrigger("manual"); }} /> Manual update</label>
-            <label><input type="radio" name="trigger" value="scheduled" checked={trigger === "scheduled"} onChange={() => { if (ownsVisit() && controller.current === null) setTrigger("scheduled"); }} /> Weekly update rehearsal</label>
+            <label><input type="radio" name="trigger" value="manual" checked={trigger === "manual"} onChange={() => chooseTrigger("manual")} /> Manual update</label>
+            <label><input type="radio" name="trigger" value="scheduled" checked={trigger === "scheduled"} onChange={() => chooseTrigger("scheduled")} /> Weekly update rehearsal</label>
           </fieldset>
           <label className="update-operation__example">Choose a rehearsal example
-            <select value={scenario} disabled={!admitted || busy} onChange={(event) => { if (ownsVisit() && controller.current === null) setScenario(event.target.value as typeof scenario); }}>
+            <select value={scenario} disabled={!admitted || busy} onChange={(event) => {
+              if (!ownsVisit() || controller.current !== null || physicalUpdateRequest.current !== null) return;
+              const value = event.target.value as FictionalUpdateScenario, revision = ++scenarioRevision.current;
+              setScenario(old => ownsVisit() ? { value, revision } : old);
+            }}>
               <option value="standard">Changed, held and unchanged items</option>
               <option value="missing_source">Expected source is missing</option>
               <option value="invalid_citation">One source link fails the checks</option>
               <option value="revised_value">A source revises 27.4% to 28.1%</option>
             </select>
           </label>
-          <button className="button button--primary" type="submit" disabled={!admitted || busy}>{busy ? "Checking…" : "Run fictional update"}</button>
+          <button className="button button--primary" type="submit" disabled={!admitted || !choicesRepresented || busy}>{busy ? "Checking…" : "Run fictional update"}</button>
         </form>
         <p className="update-operation__status" role="status">{message}</p>
         {error && <p className="form-error" role="alert">{error}</p>}
@@ -157,8 +212,8 @@ export function UpdateOperation({ initialReport }: { initialReport: UpdateRunRep
       {report.fictionalCandidate && (draftIndex >= 0
         ? <div id={draftId}><FictionalCandidate candidate={report.fictionalCandidate} /><p><a href={`#${originId}`}>Return to checked item {draftIndex + 1}</a></p></div>
         : <FictionalCandidate candidate={report.fictionalCandidate} />)}
-      <FictionalHistory inspectionDisabled={!admitted || busy} onInspect={(saved) => {
-        if (!ownsVisit() || busy || controller.current !== null) return;
+      <FictionalHistory inspectionDisabled={!admitted || busy || physicalUpdateRequest.current !== null} onInspect={(saved) => {
+        if (!ownsVisit() || busy || controller.current !== null || physicalUpdateRequest.current !== null) return;
         comparisonVisit.current++;
         const current = {}; currentSavedVisit.current = current; setSavedVisit(current);
         observation.current = saved; setResult(saved); setViewingSaved(true); setError(null);

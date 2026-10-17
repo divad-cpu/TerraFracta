@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "kind": "fictional_issue_preparation_context",
+  "scope": "invented_historical_observations_only",
+  "cases": [
+    {
+      "id": "known-base",
+      "mode": "known_base",
+      "rawEnvelopeJson": "{\"kind\": \"stored_issue_preparation_context\", \"matches\": [{\"held\": {\"run_id\": \"a95e6a40-fc7b-4c2f-a593-1ffb2778d9dc\", \"locator\": \"section:one\", \"item_key\": \"document-one\", \"decided_at\": \"2026-10-16T09:42:30.018967Z\", \"decision_id\": \"47ac59b2-9413-4fba-a036-011381ccc27c\", \"disposition\": \"held\", \"content_sha256\": \"005e84de48e67691fae309c9b7c2c01603a11caeee28d59d8d6b55b12f17ee87\", \"jurisdiction_id\": \"fictional-appended-work\", \"source_version_id\": \"ec9ec5eb-6114-42cf-b567-46c958f29e8f\"}, \"issue\": {\"head\": {\"changed_at\": \"2026-10-16T09:42:29.904626Z\", \"content_sha256\": \"7a99ec3e3945e3d5623f9b3ec66650c2ad9b2c3b5c7838376c4932337b74b9fd\", \"publication_id\": \"22beeaaa-f15e-41f3-b6d8-365fb3c313d2\"}, \"issue_id\": \"678bdb81-50f5-4ffc-a0b7-6510f00d29a7\", \"created_at\": \"2026-10-16T09:41:29.902823Z\", \"issue_slug\": \"invented-issue-context\", \"observed_at\": \"2026-10-16T09:42:34.422293Z\", \"jurisdiction_id\": \"fictional-appended-work\", \"jurisdiction_slug\": \"fictional-appended-work\"}, \"baselineJson\": \"{\\\"id\\\": \\\"22beeaaa-f15e-41f3-b6d8-365fb3c313d2\\\", \\\"kind\\\": \\\"accepted\\\", \\\"issueId\\\": \\\"678bdb81-50f5-4ffc-a0b7-6510f00d29a7\\\", \\\"revision\\\": 1, \\\"snapshot\\\": {\\\"title\\\": \\\"Invented existing issue\\\", \\\"claims\\\": [{\\\"id\\\": \\\"2c778403-b019-41c7-a97e-205363e9691d\\\", \\\"type\\\": \\\"condition\\\", \\\"evidence\\\": [{\\\"url\\\": \\\"https://example.org/invented-document.txt\\\", \\\"title\\\": \\\"Invented previous original\\\", \\\"locator\\\": \\\"section:one\\\", \\\"relation\\\": \\\"supports\\\", \\\"publisher\\\": \\\"Invented previous publisher\\\", \\\"retrievedAt\\\": \\\"2026-10-15T00:00:00.000000Z\\\", \\\"sourceVersionId\\\": \\\"7f7e2709-b502-49d7-bcff-bed8362715fe\\\", \\\"sourcePublishedOn\\\": null}], \\\"assertion\\\": \\\"Invented baseline statement claim1.\\\", \\\"periodLabel\\\": \\\"Explicit invented period\\\"}, {\\\"id\\\": \\\"da0a9ab6-cee4-4ab7-bebd-f4ec03eb9138\\\", \\\"type\\\": \\\"condition\\\", \\\"evidence\\\": [{\\\"url\\\": \\\"https://example.org/invented-document.txt\\\", \\\"title\\\": \\\"Invented previous original\\\", \\\"locator\\\": \\\"section:one\\\", \\\"relation\\\": \\\"supports\\\", \\\"publisher\\\": \\\"Invented previous publisher\\\", \\\"retrievedAt\\\": \\\"2026-10-15T00:00:00.000000Z\\\", \\\"sourceVersionId\\\": \\\"7f7e2709-b502-49d7-bcff-bed8362715fe\\\", \\\"sourcePublishedOn\\\": null}], \\\"assertion\\\": \\\"Invented baseline statement claim2.\\\", \\\"periodLabel\\\": \\\"Explicit invented period\\\"}], \\\"summary\\\": \\\"Two invented preserved baseline claims.\\\", \\\"issueSlug\\\": \\\"invented-issue-context\\\", \\\"schemaVersion\\\": 1, \\\"jurisdictionSlug\\\": \\\"fictional-appended-work\\\", \\\"lastEvidenceReviewOn\\\": \\\"2026-10-16\\\"}, \\\"dependencyManifest\\\": {\\\"sourceVersionIds\\\": [\\\"7f7e2709-b502-49d7-bcff-bed8362715fe\\\"]}}\", \"runCreatedAt\": \"2026-10-16T09:42:29.799570Z\", \"sourceRetrievedAt\": \"2026-10-15T00:00:00.000000Z\", \"publicationCreatedAt\": \"2026-10-16T09:42:29.903891Z\", \"qualificationDecidedAt\": \"2026-10-16T09:41:29.685188Z\"}], \"requested\": {\"runId\": \"a95e6a40-fc7b-4c2f-a593-1ffb2778d9dc\", \"issueId\": \"678bdb81-50f5-4ffc-a0b7-6510f00d29a7\", \"decisionId\": \"47ac59b2-9413-4fba-a036-011381ccc27c\", \"basePublicationId\": \"22beeaaa-f15e-41f3-b6d8-365fb3c313d2\"}, \"observedAt\": \"2026-10-16T09:42:34.422293Z\", \"schemaVersion\": 1}",
+      "scope": {
+        "runId": "a95e6a40-fc7b-4c2f-a593-1ffb2778d9dc",
+        "decisionId": "47ac59b2-9413-4fba-a036-011381ccc27c",
+        "issueId": "678bdb81-50f5-4ffc-a0b7-6510f00d29a7",
+        "basePublicationId": "22beeaaa-f15e-41f3-b6d8-365fb3c313d2"
+      },
+      "expected": {
+        "source": {
+          "sourceVersionId": "ec9ec5eb-6114-42cf-b567-46c958f29e8f",
+          "contentSha256": "005e84de48e67691fae309c9b7c2c01603a11caeee28d59d8d6b55b12f17ee87",
+          "itemKey": "document-one",
+          "locator": "section:one",
+          "jurisdictionId": "fictional-appended-work"
+        },
+        "head": {
+          "contentSha256": "7a99ec3e3945e3d5623f9b3ec66650c2ad9b2c3b5c7838376c4932337b74b9fd",
+          "changedAt": "2026-10-16T09:42:29.904626Z"
+        }
+      },
+      "trustedObservedAt": "2026-10-16T09:42:34.424000Z"
+    },
+    {
+      "id": "empty-head",
+      "mode": "empty_current_head",
+      "rawEnvelopeJson": "{\"kind\": \"stored_empty_issue_preparation_context\", \"matches\": [{\"held\": {\"run_id\": \"caebf7d3-b6cc-4bcb-8c8c-dc1e1fd70a44\", \"locator\": \"section:one\", \"item_key\": \"document-one\", \"decided_at\": \"2026-10-16T10:22:01.942884Z\", \"decision_id\": \"da7cde1a-e8dc-438d-94ab-da372e2b5ea4\", \"disposition\": \"held\", \"content_sha256\": \"005e84de48e67691fae309c9b7c2c01603a11caeee28d59d8d6b55b12f17ee87\", \"jurisdiction_id\": \"fictional-appended-work\", \"source_version_id\": \"36265fbd-20ba-40c1-a62a-9494a1d59ab3\"}, \"issue\": {\"head\": {\"changed_at\": null, \"content_sha256\": null, \"publication_id\": null}, \"issue_id\": \"d802256b-f235-470f-9703-cf797055f72b\", \"created_at\": \"2026-10-16T10:21:01.834108Z\", \"issue_slug\": \"invented-issue-context\", \"observed_at\": \"2026-10-16T10:22:07.765026Z\", \"jurisdiction_id\": \"fictional-appended-work\", \"jurisdiction_slug\": \"fictional-appended-work\"}, \"runCreatedAt\": \"2026-10-16T10:22:01.706579Z\", \"sourceRetrievedAt\": \"2026-10-15T00:00:00.000000Z\", \"qualificationDecidedAt\": \"2026-10-16T10:21:01.603087Z\"}], \"requested\": {\"runId\": \"caebf7d3-b6cc-4bcb-8c8c-dc1e1fd70a44\", \"issueId\": \"d802256b-f235-470f-9703-cf797055f72b\", \"decisionId\": \"da7cde1a-e8dc-438d-94ab-da372e2b5ea4\"}, \"observedAt\": \"2026-10-16T10:22:07.765026Z\", \"schemaVersion\": 1}",
+      "scope": {
+        "runId": "caebf7d3-b6cc-4bcb-8c8c-dc1e1fd70a44",
+        "decisionId": "da7cde1a-e8dc-438d-94ab-da372e2b5ea4",
+        "issueId": "d802256b-f235-470f-9703-cf797055f72b"
+      },
+      "expected": {
+        "source": {
+          "sourceVersionId": "36265fbd-20ba-40c1-a62a-9494a1d59ab3",
+          "contentSha256": "005e84de48e67691fae309c9b7c2c01603a11caeee28d59d8d6b55b12f17ee87",
+          "itemKey": "document-one",
+          "locator": "section:one",
+          "jurisdictionId": "fictional-appended-work"
+        },
+        "head": "absent"
+      },
+      "trustedObservedAt": "2026-10-16T10:22:07.767000Z"
+    }
+  ]
+}

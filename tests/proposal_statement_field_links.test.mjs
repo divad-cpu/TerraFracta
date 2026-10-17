@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
@@ -74,7 +75,7 @@ test("literal field values stay escaped and exact date coverage source conflicts
   assert.ok(html.includes("&lt;a href=&quot;/private&quot;&gt;")); assert.ok(html.includes("&lt;script&gt;canary"));
   assert.ok(html.includes("Captured (UTC)")); assert.ok(html.includes("Records observed (UTC)")); assert.ok(html.includes("Recorded last evidence review")); assert.ok(html.includes("source published:"));
   for (const text of ["Unreviewed.", "Conflicting evidence", "Return to the selected held page (new read)", "navigation only", "reason=material_conflict"]) assert.ok(html.includes(text));
-  for (const unsafe of ["<script>", '<a href="/private">', "<form", "<button", 'href="https:', "rawArchivePath"]) assert.ok(!html.includes(unsafe)); targets(html);
+  assertUnsentProposalControls(html);for (const unsafe of ["<script>", '<a href="/private">', 'href="https:', "rawArchivePath"]) assert.ok(!html.includes(unsafe)); targets(html);
 });
 
 test("distinct claim IDs with repeated wording and evidence retain unique side and field targets in recorded order", () => {

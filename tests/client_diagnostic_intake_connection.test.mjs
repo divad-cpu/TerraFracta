@@ -31,7 +31,7 @@ async function checkedExport(c, expected) {
   assert.equal((await exportErrorLog(c.directory, output)).events, expected.length);
   const bytes = await readFile(output), file = new File([bytes], "PRIVATE_FILENAME_NOT_RETURNED.json");
   const report = readDiagnosticExport(await file.arrayBuffer());
-  assert.equal(report.schemaVersion, 8); assert.equal(Object.keys(report.locations).length, 33);
+  assert.equal(report.schemaVersion, 9); assert.equal(Object.keys(report.locations).length, 34);
   assert.equal(report.inspectionComplete, true); assert.equal(report.captureCompleteness, "unknown");
   assert.equal(report.buildBinding, "not_bound_to_a_deployed_build");
   assert.deepEqual(report.events.map(event => [event.eventId, event.code]), expected);

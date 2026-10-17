@@ -4,11 +4,13 @@ import { currentIssueHref, currentIssueViews, currentIssueVisit, currentIssueSea
   currentIssueInspectionHref, currentIssueReturnHref, currentIssueSelectedHref, currentIssueDirectoryHref, currentIssueDirectoryFields,
   type CurrentIssueSelection } from "./current-issue-navigation.ts";
 import { evidenceLabels, statementLabels } from "./issue-display-labels.ts";
-import { IssueEvidence } from "../app/issue-evidence.tsx";
+import { IssueEvidence, DossierScopeNote } from "../app/issue-evidence.tsx";
 import { CurrentIssueCorrectionDraft } from "../app/corrections/draft-form.tsx";
 import { CurrentIssueEdition } from "../app/reader-preview/CurrentIssueEdition.tsx";
 import { currentCatalogueHref, currentVisitorEntry } from "./current-visitor-catalog.ts";
 import { currentIssueIdentity } from "./current-issue-status.ts";
+import { issueSourceIndex, issueSourceGroupAnchor } from "./issue-source-index.ts";
+import { SearchMatchText } from "./search-match-text.tsx";
 import { currentIssueFilterActions } from "./current-issue-filter-actions.ts";
 
 const labels = { issue: "Issue", sources: "Sources", search: "Search this issue" } as const;
@@ -20,6 +22,7 @@ export function CurrentIssueNavigationView({ decision, selection, latestHref }: 
 }) {
   const visit = currentIssueVisit(decision, selection.publicationId);
   const issue = visit.kind === "issue" ? visit.issue : null;
+  const statementNumbers = new Map(issue ? issue.claims.map((claim, index) => [claim.id, index + 1]) : []);
   const inspectionHref = issue ? currentIssueInspectionHref(issue, selection) : "";
   const returnHref = issue ? currentIssueReturnHref(issue, selection) : null;
   const directoryHref = issue ? currentIssueDirectoryHref(issue, selection) : null;
@@ -27,10 +30,12 @@ export function CurrentIssueNavigationView({ decision, selection, latestHref }: 
   const matches = issue && selection.view === "search" ? currentIssueSearchMatches(issue, selection.query, selection.statementType) : [];
   const sourceMatches = issue && selection.view === "sources" ? currentIssueReferenceMatches(issue, selection) : null;
   const filterActions = issue ? currentIssueFilterActions(issue, selection) : [];
+  const sourceGroups = new Map(issue && selection.view === "sources" ? issueSourceIndex(issue).groups.map((group, index) =>
+    [group.sourceVersionId.toLowerCase(), { ...group, anchor: issueSourceGroupAnchor(index) }] as const) : []);
 
   const content = <div className="content-page current-issue-visit">
     <header className="page-intro"><p className="eyebrow">Local reader preview / {labels[selection.view]}</p>
-      <h1>{issue ? issue.title : "Current issue"}</h1>
+      <h1>{issue ? <SearchMatchText text={issue.title} query={selection.query} /> : "Current issue"}</h1>
       <p>This development view uses the current-candidate reader. No live source or operational provider is configured.</p>
     </header>
     {issue ? <>
@@ -40,6 +45,7 @@ export function CurrentIssueNavigationView({ decision, selection, latestHref }: 
         {currentIssueViews.map(view => <a key={view} href={currentIssueSelectedHref(issue, view, selection)} aria-current={view === selection.view ? "page" : undefined}>{labels[view]}</a>)}
       </nav>
       <p className="current-issue-identity">Publication revision {issue.revision} · Last evidence review <time dateTime={issue.lastEvidenceReviewOn}>{issue.lastEvidenceReviewOn}</time></p>
+      {selection.view !== "issue" && <DossierScopeNote readingGuideReturn={currentReadingGuideReturn(issue, selection)} />}
       {selection.view !== "issue" && <p className="reader-recovery"><a href={readingGuideHref(currentReadingGuideReturn(issue, selection))}>Read definitions for statement types, reference roles and dates</a>. The guide keeps this selected edition and its filters; returning reads the current publication again.</p>}
       {filterActions.length > 0 && <aside className="reader-recovery" aria-label="Active dossier filters">
         <p><strong>Active filters</strong> — remove one while keeping the other selections.</p>
@@ -62,25 +68,29 @@ export function CurrentIssueNavigationView({ decision, selection, latestHref }: 
           <div><label htmlFor="current-source-type">Statement type</label><select id="current-source-type" name="type" defaultValue={selection.statementType}><option value="">All statement types</option>{Object.entries(statementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
           <div><label htmlFor="current-source-relation">Reference role</label><select id="current-source-relation" name="relation" defaultValue={selection.relation}><option value="">All reference roles</option>{Object.entries(evidenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
           <button type="submit">Apply filters</button><a href={currentIssueSelectedHref(issue, "sources", selection)}>Clear filters</a>
-          <p id="current-source-help">Every search word must occur in the same reference or its statement. Results keep their original reference numbers. Filters do not change the complete dossier.</p>
+          <p id="current-source-help">Every search word must occur in the same reference or its statement. You can also search a recorded source version reference to locate its uses. Results keep their original reference numbers. Filters do not change the complete dossier. Highlighted text locates search words in displayed fields; it does not establish support or agreement.</p>
         </form>
         <p role="status">Showing {sourceMatches.references.length} of {sourceMatches.total} references across {sourceMatches.matchingStatements} {sourceMatches.matchingStatements === 1 ? "statement" : "statements"}.</p>
         {sourceMatches.dossierConflictReferences > 0 && <div className="evidence-conflict"><strong>The complete dossier includes conflicting evidence.</strong><p>{sourceMatches.dossierConflictReferences} conflicting {sourceMatches.dossierConflictReferences === 1 ? "reference is" : "references are"} present. Filters may hide them. <a href={inspectionHref}>Read the complete statements and their evidence</a> before drawing a conclusion.</p></div>}
-        {sourceMatches.references.length ? <ol className="current-source-list">{sourceMatches.references.map(({ claim, source, referenceNumber, matchedFields, anchor }) => <li className={`current-source-entry--${source.relation}`} key={`${claim.id}:${referenceNumber}`}>
+        {sourceMatches.references.length ? <ol className="current-source-list">{sourceMatches.references.map(({ claim, source, referenceNumber, matchedFields, anchor }) => {
+          const group = sourceGroups.get(source.sourceVersionId.toLowerCase())!;
+          return <li className={`current-source-entry--${source.relation}`} key={`${claim.id}:${referenceNumber}`}>
           <article><p className="eyebrow">Reference {referenceNumber} · {evidenceLabels[source.relation]}</p>
-            <h3>{source.title}</h3><p>{source.publisher}</p>
-            <p><strong>Statement:</strong> <a href={`${inspectionHref}#claim-${claim.id}`}>{claim.assertion}</a></p>
+            <h3><SearchMatchText text={source.title} query={selection.query} /></h3><p><SearchMatchText text={source.publisher} query={selection.query} /></p>
+            <p><strong>Statement:</strong> <a href={`${inspectionHref}#claim-${claim.id}`}><SearchMatchText text={claim.assertion} query={selection.query} /></a></p>
             <p><a href={`${inspectionHref}#${anchor}`}>Read reference {referenceNumber} in the statement</a></p>
-            <p className="small-note">{statementLabels[claim.type]}{matchedFields.length > 0 ? ` · Matched in: ${matchedFields.join(", ")}` : ""}</p>
+            <p className="small-note">Statement {statementNumbers.get(claim.id)} · {statementLabels[claim.type]}{matchedFields.length > 0 ? ` · Matched in: ${matchedFields.join(", ")}` : ""}</p>
             {source.relation !== "contradicts" && claim.evidence.some(item => item.relation === "contradicts") && <p className="evidence-conflict">This statement also includes conflicting evidence. <a href={`${inspectionHref}#claim-${claim.id}`}>Read all its references</a>.</p>}
-            <dl><div><dt>Exact location</dt><dd>{source.locator}</dd></div>
+            <p className="small-note">In the complete dossier: {group.references.length} exact {group.references.length === 1 ? "reference" : "references"} across {group.statementCount} {group.statementCount === 1 ? "statement" : "statements"}. Current filters may hide other uses. {group.references.length > 1 && "Repeated use does not establish independent confirmation. "}<a href={`${inspectionHref}#${group.anchor}`}>Inspect this source version in the complete dossier</a>.</p>
+            <dl><div><dt>Recorded source version reference</dt><dd><code><SearchMatchText text={source.sourceVersionId} query={selection.query} /></code></dd></div>
+              <div><dt>Exact location</dt><dd><SearchMatchText text={source.locator} query={selection.query} /></dd></div>
               <div><dt>Original language</dt><dd>Not supplied in this publication</dd></div>
-              <div><dt>Data period</dt><dd>{claim.periodLabel}</dd></div>
-              <div><dt>Source published</dt><dd>{source.sourcePublishedOn === null ? "No verified source publication date supplied" : <time dateTime={source.sourcePublishedOn}>{source.sourcePublishedOn}</time>}</dd></div>
-              <div><dt>Retrieved</dt><dd><time dateTime={source.retrievedAt}>{source.retrievedAt}</time></dd></div></dl>
-            <p className="citation-card__url">Source URL: {source.url}</p>
+              <div><dt>Data period</dt><dd><SearchMatchText text={claim.periodLabel} query={selection.query} /></dd></div>
+              <div><dt>Source published</dt><dd>{source.sourcePublishedOn === null ? "No verified source publication date supplied" : <time dateTime={source.sourcePublishedOn}><SearchMatchText text={source.sourcePublishedOn} query={selection.query} /></time>}</dd></div>
+              <div><dt>Retrieved</dt><dd><time dateTime={source.retrievedAt}><SearchMatchText text={source.retrievedAt} query={selection.query} /></time></dd></div></dl>
+            <p className="citation-card__url">Source URL: <SearchMatchText text={source.url} query={selection.query} /></p>
           </article>
-        </li>)}</ol> : <div className="info-band"><h3>No reference matches these filters</h3><p>This result concerns only the selected fields in this dossier. It does not establish that evidence is absent elsewhere.</p><a href={currentIssueSelectedHref(issue, "sources", selection)}>Show all references in this publication</a></div>}
+        </li>; })}</ol> : <div className="info-band"><h3>No reference matches these filters</h3><p>This result concerns only the selected fields in this dossier. It does not establish that evidence is absent elsewhere.</p><a href={currentIssueSelectedHref(issue, "sources", selection)}>Show all references in this publication</a></div>}
       </section>}
       {selection.view === "search" && <section aria-labelledby="current-search-title">
         <h2 id="current-search-title">Find a statement in this dossier</h2>
@@ -91,19 +101,20 @@ export function CurrentIssueNavigationView({ decision, selection, latestHref }: 
           <div className="search-field"><input id="current-issue-query" name="q" type="search" maxLength={80} defaultValue={selection.query} aria-describedby="current-search-help" /><button type="submit">Search</button></div>
           <label htmlFor="current-search-type">Statement type</label><select id="current-search-type" name="type" defaultValue={selection.statementType}><option value="">All statement types</option>{Object.entries(statementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
           {filterActions.length > 0 && <a href={currentIssueSelectedHref(issue, "search", selection)}>Clear this search</a>}
-          <p id="current-search-help">Every search word must occur in the issue title, statement, period or its source titles, publishers or exact locations. Words may occur across different references. Reference links locate one or more search words; they do not establish support or agreement.</p>
+          <p id="current-search-help">Every search word must occur in the issue title, statement, period or its source titles, publishers, exact locations or recorded source version references. Words may occur across different references. Reference links locate one or more search words; they do not establish support or agreement. Highlighted text locates search words in displayed fields; it does not establish that one reference matches every word.</p>
         </form>
         <p role="status">{matches.length} {matches.length === 1 ? "statement matches" : "statements match"}{selection.query ? ` “${selection.query}”` : " in this dossier"}.</p>
         {matches.length ? <ol className="current-search-results">{matches.map(({ claim, matchedFields, matchedReferences }) => <li key={claim.id}>
-          <a href={`${inspectionHref}#claim-${claim.id}`}>{claim.assertion}</a>
-          <p>{statementLabels[claim.type]} · Data period: {claim.periodLabel} · {claim.evidence.length} source {claim.evidence.length === 1 ? "reference" : "references"}</p>
+          <a href={`${inspectionHref}#claim-${claim.id}`}><SearchMatchText text={claim.assertion} query={selection.query} /></a>
+          <p>Statement {statementNumbers.get(claim.id)} · {statementLabels[claim.type]} · Data period: <SearchMatchText text={claim.periodLabel} query={selection.query} /> · {claim.evidence.length} source {claim.evidence.length === 1 ? "reference" : "references"}</p>
           {matchedFields.length > 0 && <p className="small-note">Matched in: {matchedFields.join(", ")}</p>}
           {matchedReferences.length > 0 && <ul className="current-search-reference-matches" aria-label="References with matching search words">{matchedReferences.map(({ source, referenceNumber, anchor, matchedFields: fields }) => <li key={anchor}>
-            <a href={`${inspectionHref}#${anchor}`}>Reference {referenceNumber}: {source.title}</a>
+            <a href={`${inspectionHref}#${anchor}`}>Reference {referenceNumber}: <SearchMatchText text={source.title} query={selection.query} /></a>
             <p className="small-note">{evidenceLabels[source.relation]} · Search words in: {fields.join(", ")}</p>
-            {(fields.includes("Publisher") || fields.includes("Exact location")) && <dl aria-label="Matching source metadata">
-              {fields.includes("Publisher") && <div><dt>Publisher</dt><dd>{source.publisher}</dd></div>}
-              {fields.includes("Exact location") && <div><dt>Exact location</dt><dd>{source.locator}</dd></div>}
+            {(fields.includes("Publisher") || fields.includes("Exact location") || fields.includes("Recorded source version")) && <dl aria-label="Matching source metadata">
+              {fields.includes("Publisher") && <div><dt>Publisher</dt><dd><SearchMatchText text={source.publisher} query={selection.query} /></dd></div>}
+              {fields.includes("Exact location") && <div><dt>Exact location</dt><dd><SearchMatchText text={source.locator} query={selection.query} /></dd></div>}
+              {fields.includes("Recorded source version") && <div><dt>Recorded source version reference</dt><dd><code><SearchMatchText text={source.sourceVersionId} query={selection.query} /></code></dd></div>}
             </dl>}
           </li>)}</ul>}
           {claim.evidence.some(source => source.relation === "contradicts") && <p className="evidence-conflict">This statement includes conflicting evidence. Read its complete references before drawing a conclusion.</p>}

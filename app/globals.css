@@ -623,3 +623,36 @@
     box-shadow: none !important;
   }
 }
+
+/* Unsent issue-scope preparation reuses the existing field palette and focus
+   rules. Actual layout, keyboard and File-picker acceptance remains separate. */
+.issue-scope-preparation { margin: 2rem 0; padding: 1rem 0; border-top: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere; }
+.issue-scope-preparation summary { cursor: pointer; min-height: 44px; padding: .65rem 0; font-weight: 700; }
+.issue-scope-preparation > section { margin: 1.5rem 0; }
+.issue-scope-preparation label { display: block; font-size: .83rem; font-weight: 800; margin: .75rem 0 .4rem; }
+.issue-scope-preparation input, .issue-scope-preparation select, .issue-scope-preparation textarea { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; border: 1px solid #adbbb2; background: #fff; color: var(--ink); padding: .8rem; font: inherit; border-radius: 0; }
+.issue-scope-preparation textarea { resize: vertical; }
+.issue-scope-preparation button { min-height: 44px; padding: .65rem 1rem; margin: .5rem .5rem .5rem 0; font: inherit; }
+.issue-scope-preparation :disabled { background: #eef0e8; }
+.issue-scope-preparation dd { margin: .3rem 0 1rem; }
+
+/* Isolated dossier-context comparison: preserve source order on small screens.
+   Browser layout and keyboard acceptance remain separate from native checks. */
+.dossier-context-comparison-sides { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; margin: 1.5rem 0; }
+.dossier-context-comparison-sides > section { min-width: 0; overflow-wrap: anywhere; border-top: 1px solid var(--line); padding-top: 1rem; }
+.dossier-context-comparison-sides dd { margin: .3rem 0 1rem; }
+.dossier-context-comparison-sides summary { cursor: pointer; min-height: 44px; padding: .65rem 0; font-weight: 700; }
+@media (min-width: 1000px) { .dossier-context-comparison-sides { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Keep every metadata column reachable without hiding unknowns or breaks. */
+.indicator-basis-comparison { max-width: 100%; overflow-x: auto; margin: 1.5rem 0; }
+.indicator-basis-comparison table { width: 100%; border-collapse: collapse; }
+.indicator-basis-comparison caption { text-align: left; padding: .75rem 0; }
+.indicator-basis-comparison th, .indicator-basis-comparison td { text-align: left; vertical-align: top; min-width: 9rem; padding: .75rem; border: 1px solid var(--line); overflow-wrap: anywhere; }
+
+/* Keep all monitoring axes available on small screens. Actual Browser layout
+   and keyboard acceptance remain separate from local markup checks. */
+.source-monitoring-table { max-width: 100%; overflow-x: auto; margin: 1.5rem 0; }
+.source-monitoring-table table { width: 100%; border-collapse: collapse; }
+.source-monitoring-table caption { text-align: left; padding: .75rem 0; }
+.source-monitoring-table th, .source-monitoring-table td { text-align: left; vertical-align: top; min-width: 10rem; padding: .75rem; border: 1px solid var(--line); overflow-wrap: anywhere; }

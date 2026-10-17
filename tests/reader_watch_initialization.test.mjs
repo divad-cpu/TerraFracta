@@ -1,3 +1,4 @@
+import { readerWrapperLifetime } from "./helpers/reader_wrapper_lifetime.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
@@ -50,11 +51,11 @@ test("actual current and connected JSX wrappers remove the whole checked subtree
   const originalDocument = globalThis.document;
   try {
     for (const failure of ["clock", "timeout"]) for (const item of cases) {
-      const c = controls(failure), listeners = new Map(); let status = { kind: "current" }, effect, reads = 0;
+      const c = controls(failure), listeners = new Map(); let status = { kind: "current" }, effect, reads = 0; const lifetime = readerWrapperLifetime(callback => { effect = callback; });
       globalThis.document = { visibilityState: "visible", addEventListener: (name, callback) => listeners.set(name, callback),
         removeEventListener: (name, callback) => { assert.equal(listeners.get(name), callback); listeners.delete(name); } };
       const Component = loadTsx(new URL(item.file, import.meta.url), name => name === "react"
-        ? { useState: () => [status, next => { status = next; }], useEffect: callback => { effect = callback; } }
+        ? { useState: () => [status, next => { status = next; }], ...lifetime }
         : name.replace(/\.ts$/, "").endsWith(item.watch.replace(/\.ts$/, "")) ? { [item.start.name]: (expected, changed) => item.start(expected, changed, async () => { reads++; assert.fail("setup-failed JSX read"); }, c) }
         : undefined)[item.component];
       const props = { expected: item.identity, latestHref: "/reader-preview/catalogue",
@@ -110,11 +111,11 @@ test("actual wrappers retire partial visibility setup, hold the subtree and deny
   const originalDocument = globalThis.document;
   try {
     for (const item of cases) {
-      const c = controls("none"), listeners = new Map(); let status = { kind: "current" }, effect, reads = 0, signal, late;
+      const c = controls("none"), listeners = new Map(); let status = { kind: "current" }, effect, reads = 0, signal, late; const lifetime = readerWrapperLifetime(callback => { effect = callback; });
       globalThis.document = { visibilityState: "visible", addEventListener(name, callback) { listeners.set(name, callback); throw Error("PRIVATE_VISIBILITY_SETUP"); },
         removeEventListener(name) { listeners.delete(name); throw Error("PRIVATE_VISIBILITY_REMOVE"); } };
       const Component = loadTsx(new URL(item.file, import.meta.url), name => name === "react"
-        ? { useState: () => [status, next => { status = next; }], useEffect: callback => { effect = callback; } }
+        ? { useState: () => [status, next => { status = next; }], ...lifetime }
         : name.replace(/\.ts$/, "").endsWith(item.watch.replace(/\.ts$/, "")) ? { [item.start.name]: (expected, changed) => item.start(expected, changed, (...args) => {
           signal = args.at(-1); reads++; return new Promise(resolve => { late = resolve; });
         }, c) } : undefined)[item.component];

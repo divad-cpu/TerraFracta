@@ -208,7 +208,19 @@ async function heldSurfaces(decision, requested) {
       .map(match => attribute(match[1], "href"));
     assert.deepEqual(proposalHrefs, decision.report.decisions.map(row =>
       `/editorial-preview/held/proposal?runId=${requested.runId}&amp;decisionId=${row.decisionId}`));
-    assert.ok(!html.includes('type="submit"')); assert.ok(!html.includes("<form"));
+    const forms = [...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/g)];
+    assert.equal(forms.length, 2);
+    for (const [, attributes] of forms) {
+      assert.equal(attribute(attributes, "method"), "get");
+      assert.equal(attribute(attributes, "action"), "/editorial-preview/held");
+    }
+    const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+    assert.deepEqual(buttons.map(match => match[2]), ["Search held references", "Apply reason filter"]);
+    for (const [, attributes] of buttons) assert.equal(attribute(attributes, "type"), "submit");
+    for (const [, attributes] of html.matchAll(/<input\b([^>]*)>/g)) {
+      assert.ok(["hidden", "search"].includes(attribute(attributes, "type")));
+    }
+    assert.ok(!/method="post"|formaction=|formmethod=/i.test(html));
   } else {
     assert.ok(!html.includes("Recorded holds"));
     assert.ok(!html.includes("66000000-0000-4000-8000-000000000019"));
@@ -312,12 +324,34 @@ async function selectedProposal(expected, requested=proposalScope){
  assert.deepEqual(events.slice(start),expected==='unavailable'?['operator_audit_read']:[]);
  const {ProposalComparisonView}=load(new URL('../src/operator-proposal-view.tsx',import.meta.url));
  const html=renderToStaticMarkup(createElement(ProposalComparisonView,{decision,selection:requested}));
- assert.ok(!html.includes('<button')&&!html.includes('<form')&&!html.includes('PRIVATE_'));
+ assert.ok(!html.includes('<form')&&!html.includes('PRIVATE_'));
  if(expected==='ok'){
+  assert.ok(html.includes('Captured content cannot be edited here'));
+  assert.ok(html.includes('Nothing is submitted, saved to the archive or published'));
+  const buttons=[...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+  assert.deepEqual(buttons.map(match=>match[2]),['Clear reference finder','Show all reference choices',
+   'Reopen scope preparation','Review scope draft','Clear scope draft','Show all responsibility reference choices','Add responsibility entry',
+   'Review responsibility draft','Clear responsibility draft','Reopen responsibility preparation',
+   'Show all indicator reference choices','Add indicator entry','Inspect unsent indicator draft','Clear indicator draft','Reopen indicator preparation',
+   'Inspect combined preparation packet','Clear preparation packet','Read saved preparation packet','Reopen preparation packet']);
+  for(const [,attributes] of buttons){
+   assert.match(attributes,/(?:^|\s)type="button"(?=\s|$)/);
+   assert.match(attributes,/(?:^|\s)disabled=""(?=\s|$)/);
+  }
+  // The preceding reference finder is read-only; unsent preparation remains
+  // unadmitted in server markup, independently of those local lookup controls.
+  const preparationStart=html.indexOf('<details class="issue-scope-preparation"');
+  assert.ok(preparationStart>=0);
+  const fields=[...html.slice(preparationStart).matchAll(/<(?:input|select|textarea)\b([^>]*)>/g)];
+  assert.ok(fields.length>0);
+  for(const [,attributes] of fields)assert.match(attributes,/(?:^|\s)disabled=""(?=\s|\/|$)/);
+  for(const [,attributes] of html.matchAll(/<input\b([^>]*)>/g))
+   assert.match(attributes,/(?:^|\s)type="(?:search|file)"(?=\s|\/|$)/);
+  assert.ok(!/type="submit"|method="post"|formaction=|formmethod=/i.test(html));
   assert.equal(decision.report.capture.basePublicationId,null);
   assert.ok(html.includes('The invented share was 8.2%.'));
   assert.ok(html.includes('witnessed issue head had no publication'));
- }else assert.ok(!html.includes('The invented share'));
+ }else assert.ok(!html.includes('The invented share')&&!html.includes('<button'));
  let calls=0;
  const page=load(proposalPageSource,async selected=>{calls++;assert.deepEqual(selected,requested);return decision;}).default;
  const pageHtml=renderToStaticMarkup(await page({searchParams:Promise.resolve(requested)}));

@@ -34,11 +34,12 @@ test('identical repeated references and reused versions across statements remain
   assert.deepEqual(rows.map(r=>r.anchor),[`reference-${record.claims[0].id}-1`,`reference-${record.claims[0].id}-4`,`reference-${record.claims[1].id}-1`,`reference-${record.claims[1].id}-4`]);
   assert.equal(new Set(rows.map(r=>r.anchor)).size,4);assert.deepEqual(record,before);
 });
-test('filtered source return goes to the exact citation in the same edition, without transferring filters',()=>{
+test('filtered source return reaches the exact citation with checked return context, not active filters',()=>{
   const record=issue(),html=render(record,{q:'footnote',type:'condition',relation:'context'}),links=referenceLinks(html);
   assert.equal(links.length,1);assert.equal(links[0].number,3);
   const url=new URL(links[0].href,'https://example.invalid');assert.equal(url.pathname,`/reader-preview/${record.jurisdictionSlug}/${record.issueSlug}/issue`);
-  assert.deepEqual(Object.fromEntries(url.searchParams),{edition:record.publicationId});assert.equal(url.hash,`#reference-${record.claims[0].id}-3`);
+  assert.deepEqual(Object.fromEntries(url.searchParams),{edition:record.publicationId,returnView:'sources',returnQ:'footnote',returnType:'condition',returnRelation:'context'});
+  assert.equal(url.hash,`#reference-${record.claims[0].id}-3`);
   assert.ok(full(record).includes('id="'+url.hash.slice(1)+'"'));assert.ok(html.includes('complete dossier includes conflicting evidence'));
   assert.ok(html.includes('statement also includes conflicting evidence'));assert.ok(!html.includes('href="https:'));
 });

@@ -66,7 +66,7 @@ test("both actual review observers persist distinct identities through the exist
   const bytesBefore = await Promise.all(before.events.map(value => readFile(join(directory, value.eventId + ".json"))));
   const output = join(parent, "export.json"); await exportErrorLog(directory, output);
   const bytes = await readFile(output), exported = JSON.parse(bytes), imported = readDiagnosticExport(new Uint8Array(bytes).buffer);
-  assert.equal(exported.schemaVersion, 8); assert.equal(Object.keys(exported.locations).length, 33); assert.deepEqual(imported, exported);
+  assert.equal(exported.schemaVersion, 9); assert.equal(Object.keys(exported.locations).length, 34); assert.deepEqual(imported, exported);
   assert.equal((await lstat(directory)).mode & 0o777, 0o700); assert.equal((await lstat(output)).mode & 0o777, 0o600);
   for (const [code, location] of operations) {
     const selection = diagnosticSelection({ code, origin: "server" }), selected = selectDiagnosticEvents(imported, selection);
@@ -93,7 +93,7 @@ test("exact genuine v1/v2/v3/v4 reports retain all original bytes, attribution a
   assert.equal(createHash("sha256").update(originals[3]).digest("hex"), "bf82253e123a7f4d880dd8b4981a11e794f634be2d0c73c496e3cd6f7350e427");
   for (const [index, old] of historical().entries()) {
     assert.deepEqual(old.locations, catalogues[index]); const before = JSON.stringify(old), current = decode(old);
-    assert.equal(current.schemaVersion, 8); assert.deepEqual(parseDiagnosticReport(current), current);
+    assert.equal(current.schemaVersion, 9); assert.deepEqual(parseDiagnosticReport(current), current);
     for (const key of ["events", "exportedAt", "archiveState", "inspectionComplete", "locked", "filesObserved", "unreadableFiles", "capacityReached", "captureCompleteness", "buildBinding", "instructions"])
       assert.deepEqual(current[key], old[key]);
     for (const [code, count] of Object.entries(old.counts)) assert.equal(current.counts[code], count);
@@ -131,7 +131,7 @@ test("v6 refuses new events inside old reports and partial, forged, mixed or unk
     const wrongCount = structuredClone(current); wrongCount.counts[code] = 0;
     const unknown = structuredClone(current); unknown.events[0].code = "correction_private_journal";
     for (const bad of [missingCount, missingLocation, wrongLocation, wrongOrigin, wrongCount, unknown,
-      { ...current, schemaVersion: 9 }, { ...current, privatePath: "PRIVATE_PATH_CANARY" }]) assert.throws(() => decode(bad));
+      { ...current, schemaVersion: 10 }, { ...current, privatePath: "PRIVATE_PATH_CANARY" }]) assert.throws(() => decode(bad));
   }
 });
 

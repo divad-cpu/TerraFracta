@@ -74,7 +74,7 @@ try {
   assert.equal(intents.length, 8);
   const output = join(parent, "export.json"); await exportErrorLog(directory, output);
   const raw = await readFile(output), report = readDiagnosticExport(new Uint8Array(raw).buffer);
-  assert.equal(report.schemaVersion, 8); assert.equal(report.events.length, 8);
+  assert.equal(report.schemaVersion, 9); assert.equal(report.events.length, 8);
   assert.equal(report.captureCompleteness, "unknown");
   assert.equal(report.buildBinding, "not_bound_to_a_deployed_build");
   assert.doesNotMatch(raw.toString(), /PRIVATE_|https|sourceUrl|aaaaaaaa|publicationId|executionId|stack|message|sha256/);
@@ -96,7 +96,7 @@ try {
   assert.equal((await lstat(output)).mode & 0o777, 0o600);
   const result = { evidenceKind: "actual_default_workflow_diagnostic_in_process_filesystem_chain",
     events: 8, distinctFunctions: 8, codes: Object.keys(fictionalCorrectionDiagnosticCodes),
-    reportVersion: 8, browserVerified: false, networkRequests: 0, serversStarted: 0,
+    reportVersion: 9, browserVerified: false, networkRequests: 0, serversStarted: 0,
     realReports: 0, databaseChanged: false, captureCompleteness: "unknown" };
   await writeFile(join(parent, "RESULT.json"), JSON.stringify(result, null, 2) + "\n", { flag: "wx", mode: 0o600 });
   process.stdout.write(JSON.stringify(result) + "\n");

@@ -18,16 +18,16 @@ function text(node) { return Array.isArray(node) ? node.map(text).join("") : nod
 // transport replaced. This is in-process behavior, not DOM/hydration proof.
 function harness(props = {}) {
   const file = new URL("../app/update-preview/history.tsx", import.meta.url), native = createRequire(file), exports = {}, cells = [], logs = [];
-  let cursor = 0, effect, cleanup, writes = 0;
+  let cursor = 0, effect, cleanup, layout, layoutCleanup, writes = 0;
   const hooks = { useState(initial) { const id = cursor++; if (!(id in cells)) cells[id] = initial;
     return [cells[id], value => { writes++; cells[id] = typeof value === "function" ? value(cells[id]) : value; }]; },
-    useRef(initial) { const id = cursor++; if (!(id in cells)) cells[id] = { current: initial }; return cells[id]; }, useEffect(callback) { effect = callback; } };
+    useRef(initial) { const id = cursor++; if (!(id in cells)) cells[id] = { current: initial }; return cells[id]; }, useLayoutEffect(callback) { layout = callback; }, useEffect(callback) { effect = callback; } };
   const code = ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function("require", "exports", code)(name => name === "react" ? hooks : name.endsWith("client-error-diagnostics.ts") ? {
     observeClientError: code => observeClientError(code, async code => { logs.push(code); return null; }) }
     : name.startsWith(".") && existsSync(new URL(name + ".ts", file)) ? native(name + ".ts") : native(name), exports);
   const render = () => { cursor = 0; return exports.FictionalHistory({ onInspect() {}, ...props }); };
-  return { render, setProps(next) { props = { ...props, ...next }; }, markup: () => renderToStaticMarkup(render()), mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); }, logs,
+  return { render, setProps(next) { props = { ...props, ...next }; }, markup: () => renderToStaticMarkup(render()), mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); }, logs,
     get writes() { return writes; }, button(label) { const found = nodes(render()).find(node => node.type === "button" && text(node).startsWith(label)); assert.ok(found, label); return found.props; },
     submit() { nodes(render()).find(node => node.type === "form").props.onSubmit({ preventDefault() {} }); },
     select(index, value) { nodes(render()).filter(node => node.type === "select")[index].props.onChange({ target: { value } }); } };

@@ -1,3 +1,4 @@
+import { readerWrapperLifetime } from "./helpers/reader_wrapper_lifetime.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
@@ -71,11 +72,11 @@ test('connected invalid or first-faulting identity is unavailable before read-po
 
 test('actual connected-edition wrapper withholds the whole old subtree after identity drift', async () => {
   const priorDocument = globalThis.document, c = controls(), owner = expected(), listeners = new Map();
-  let state = { kind: 'current' }, effect, settle;
+  let state = { kind: 'current' }, effect, settle; const lifetime = readerWrapperLifetime(callback => { effect = callback; });
   globalThis.document = { visibilityState: 'visible', addEventListener: (key, callback) => listeners.set(key, callback), removeEventListener: key => listeners.delete(key) };
   try {
     const Component = loadTsx(new URL('../app/connected-preview/CurrentConnectedEdition.tsx', import.meta.url), name => name === 'react'
-      ? { useState: () => [state, value => { state = value; }], useEffect: callback => { effect = callback; } }
+      ? { useState: () => [state, value => { state = value; }], ...lifetime }
       : name === '../../src/connected-reader-watch'
         ? { startConnectedReaderWatch: (identity, changed) => startConnectedReaderWatch(identity, changed, () => new Promise(resolve => { settle = resolve; }), c) } : undefined).CurrentConnectedEdition;
     const props = { expected: owner, children: createElement('div', null, 'OLD_CONNECTED_CLAIM_CANARY', createElement('a', { href: '#evidence' }, 'OLD_CONNECTED_SOURCE_CANARY'), createElement('textarea', { defaultValue: 'UNSENT_CONNECTED_DRAFT_CANARY' })) };

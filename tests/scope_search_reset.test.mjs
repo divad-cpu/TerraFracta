@@ -1,0 +1,38 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { scopeDraftHarness } from "./helpers/scope_draft_harness.mjs";
+import { elements } from "./helpers/correction_draft_harness.mjs";
+import { capturedScopeDraftContext } from "../src/server/issue-scope-draft.ts";
+import { proposalReport, proposalId } from "./helpers/proposal_fixture.mjs";
+const input = (tree, suffix) => elements(tree).find(node => node.props.id?.endsWith(suffix));
+const button = (tree, label) => elements(tree).find(node => node.type === "button" && node.props.children === label);
+test("show-all scope references retires earlier search events without clearing wording or selected reference occurrences", () => {
+  const context = capturedScopeDraftContext(proposalReport()), h = scopeDraftHarness(context); h.mount();
+  input(h.render(), "-population-wording").props.onChange({ currentTarget: { value: "Invented retained wording" } });
+  input(h.render(), "-population-references").props.onChange({ currentTarget: { selectedOptions: [{ value: `${proposalId(3)}:2` }] } });
+  input(h.render(), "-reference-search").props.onChange({ currentTarget: { value: "contrasting" } });
+  const prior = h.render(), oldSearch = input(prior, "-reference-search").props.onChange;
+  button(prior, "Show all reference choices").props.onClick();
+  oldSearch(new Proxy({}, { get() { assert.fail("Reset-retired search event observed"); } }));
+  const cleared = h.render();
+  assert.equal(input(cleared, "-reference-search").props.value, "");
+  assert.equal(input(cleared, "-population-wording").props.value, "Invented retained wording");
+  assert.deepEqual(input(cleared, "-population-references").props.value, [`${proposalId(3)}:2`]);
+  input(cleared, "-reference-search").props.onChange({ currentTarget: { value: "invented" } });
+  assert.equal(input(h.render(), "-reference-search").props.value, "invented"); h.unmount();
+});
+test("ordinary batched scope search keeps the latest query while old show-all and deferred query merges cannot erase newer intent", () => {
+  const h = scopeDraftHarness(capturedScopeDraftContext(proposalReport())); h.mount();
+  const initial = input(h.render(), "-reference-search").props.onChange;
+  initial({ currentTarget: { value: "invented" } }); initial({ currentTarget: { value: "contrasting" } });
+  assert.equal(input(h.render(), "-reference-search").props.value, "contrasting");
+  const oldClear = button(h.render(), "Show all reference choices").props.onClick;
+  input(h.render(), "-reference-search").props.onChange({ currentTarget: { value: "table" } }); oldClear();
+  assert.equal(input(h.render(), "-reference-search").props.value, "table");
+  h.pauseMerges(); const old = input(h.render(), "-reference-search").props.onChange;
+  old({ currentTarget: { value: "queued query" } });
+  button(h.render(), "Show all reference choices").props.onClick();
+  old(new Proxy({}, { get() { assert.fail("Queued reset-retired search event observed"); } }));
+  h.flushMerges(); assert.equal(input(h.render(), "-reference-search").props.value, "");
+  h.unmount();
+});

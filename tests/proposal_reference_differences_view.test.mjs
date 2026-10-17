@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
@@ -58,5 +59,5 @@ test('twelve changed positions on both panels remain escaped uniquely targeted a
  }));
  assert.ok(html.includes('0 identical reference occurrences; 12 only in the recorded panel; 12 only in the proposed panel.'));
  assert.equal(links(html).length,24);targets(html);assert.ok(html.includes('&lt;script&gt;title-canary'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('Supporting evidence'));assert.ok(html.includes('Conflicting evidence'));
- for(const forbidden of ['<form','<button','href="https:','rawArchivePath'])assert.ok(!html.includes(forbidden),forbidden);
+ assertUnsentProposalControls(html);for(const forbidden of ['href="https:','rawArchivePath'])assert.ok(!html.includes(forbidden),forbidden);
 });

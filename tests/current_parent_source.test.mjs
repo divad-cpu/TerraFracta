@@ -86,3 +86,18 @@ test("unmounted or failed source callbacks never preserve earlier acceptance-loo
     assert.ok(!failed.markup().includes("private-canary")); failed.unmount();
   } finally { globalThis.fetch = original; }
 });
+
+test("a new source-comparison mount waits for an ignored-abort predecessor before another GET", async () => {
+  const original = globalThis.fetch, pending = [];
+  globalThis.fetch = async (_url, options) => new Promise((resolve, reject) => pending.push({ resolve, reject, signal: options.signal }));
+  const ui = parentSourceHarness();
+  try {
+    ui.mount(); ui.button().onClick(); ui.remount(); assert.equal(pending[0].signal.aborted, true);
+    assert.equal(ui.button().disabled, true); ui.button().onClick(); assert.equal(pending.length, 1);
+    pending[0].resolve(Response.json(good())); await new Promise(done => setImmediate(done));
+    assert.doesNotMatch(ui.markup(), /84 matched|Prepared source files have changed/);
+    assert.equal(ui.button().disabled, false); ui.button().onClick(); assert.equal(pending.length, 2);
+    pending[1].resolve(Response.json(good())); await new Promise(done => setImmediate(done));
+    assert.match(ui.markup(), /84 matched/);
+  } finally { ui.unmount(); globalThis.fetch = original; }
+});

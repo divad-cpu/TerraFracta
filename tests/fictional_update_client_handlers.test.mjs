@@ -19,7 +19,7 @@ const text = value => Array.isArray(value) ? value.map(text).join("") : value &&
   ? text(value.props?.children) : String(value ?? "");
 function operationHarness(request, prior = null, report = async () => null, dispatch = null) {
   const path = new URL("../app/update-preview/operation.tsx", import.meta.url), nativeRequire = createRequire(path);
-  const states = [], refs = [], effects = []; let index = 0, refIndex = 0, effectIndex = 0, cleanup;
+  const states = [], refs = [], effects = []; let index = 0, refIndex = 0, effectIndex = 0, cleanup, layoutIndex = 0; const layouts = [];
   const hooks = { ...react, useId: () => "operation-port", useState: (initial) => {
     const id = index++, value = id === 2 ? prior : initial;
     states[id] ??= { value, writes: [] };
@@ -28,7 +28,7 @@ function operationHarness(request, prior = null, report = async () => null, disp
       if (dispatch && !dispatch({ lanes: 0, alternate: null }, { lastRenderedReducer: reducer, lastRenderedState: states[id].value }, next, 2)) return;
       states[id].writes.push(next); states[id].value = reducer(states[id].value, next);
     }];
-  }, useRef: (value) => { const id = refIndex++; refs[id] ??= { current: value }; return refs[id]; }, useEffect: callback => { effects[effectIndex++] = callback; } };
+  }, useRef: (value) => { const id = refIndex++; refs[id] ??= { current: value }; return refs[id]; }, useLayoutEffect: (fn, deps) => { const i = layoutIndex++, old = layouts[i]; if (!old || deps.some((v,j) => v !== old.deps[j])) layouts[i] = { fn, deps, cleanup: old?.cleanup, pending: true }; }, useEffect: callback => { effects[effectIndex++] = callback; } };
   const compiled = ts.transpileModule(readFileSync(path, "utf8"), {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
@@ -42,7 +42,7 @@ function operationHarness(request, prior = null, report = async () => null, disp
     name.endsWith("fictional-decision-labels") || name.endsWith("update-run-report") ? nativeRequire(name + ".ts") :
     Object.hasOwn(children, name) ? children[name] : nativeRequire(name);
   new Function("require", "exports", compiled)(require, exports);
-  const render = () => { index = 0; refIndex = 0; effectIndex = 0; return exports.UpdateOperation({ initialReport: saved }); };
+  const render = () => { index = 0; refIndex = 0; effectIndex = 0; layoutIndex = 0; const tree = exports.UpdateOperation({ initialReport: saved }); for (const e of layouts) if (e.pending) { e.cleanup?.(); e.cleanup = e.fn(); e.pending = false; } return tree; };
   function find(node) {
     if (!node || typeof node !== "object") return;
     if (node.type === "form") return node;
@@ -60,7 +60,7 @@ function operationHarness(request, prior = null, report = async () => null, disp
     retainedSubmit: () => find(render()).props.onSubmit,
     retainedInspect: () => history(render()).props.onInspect,
     presentationEffect(target) { render(); refs[1].current = target; return effects[1]; },
-    mount() { render(); cleanup = effects[0]?.(); render(); }, unmount() { cleanup?.(); },
+    mount() { for (const e of layouts) e.pending = true; render(); cleanup = effects[0]?.(); render(); }, unmount() { for (const e of layouts) e.cleanup?.(); cleanup?.(); },
     field(type) { function nodes(node) { return Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === "object" ? [node, ...nodes(node.props?.children)] : []; }
       return nodes(render()).filter(node => node.type === type).map(node => node.props); },
   };

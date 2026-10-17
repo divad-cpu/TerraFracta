@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, writeFile, lstat, mkdir, symlink, readdir, readFile } from "node:fs/promises";
+import { mkdtemp, writeFile, lstat, mkdir, chmod, symlink, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -57,6 +57,9 @@ test("archive rejects symbolic links, insecure directories, corrupt/foreign fiel
   assert.equal(JSON.parse(await readFile(output, "utf8")).inspectionComplete, false);
   await symlink(directory, join(parent, "alias")); assert.equal(await new ErrorLogStore(join(parent, "alias")).append(event()), "unavailable");
   const insecure = join(parent, "insecure"); await mkdir(insecure, { mode: 0o755 });
+  // A restrictive caller umask may narrow mkdir's requested mode. Establish
+  // and observe the intentionally insecure fixture before testing refusal.
+  await chmod(insecure, 0o755); assert.equal((await lstat(insecure)).mode & 0o777, 0o755);
   assert.equal(await new ErrorLogStore(insecure).append(event()), "unavailable");
   await symlink(parent, join(parent, "parent-alias"));
   assert.equal(await new ErrorLogStore(join(parent, "parent-alias", "other")).append(event()), "unavailable");

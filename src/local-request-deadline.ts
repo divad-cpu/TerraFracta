@@ -6,14 +6,20 @@ export async function withLocalRequestDeadline<T>(signal: AbortSignal, milliseco
   const began = now();
   if (!Number.isFinite(began)) throw new Error("Local request unavailable");
   const controller = new AbortController();
-  const cancel = () => controller.abort();
+  let retired = false, cancellationObserved = false;
+  const cancel = () => {
+    if (retired) return;
+    cancellationObserved = true;
+    // A failed physical abort cannot reopen a cancelled presentation or escape
+    // its callback. The awaited request still owns the slot until settlement.
+    try { controller.abort(); } catch { /* Cancellation remains observed. */ }
+  };
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let retired = false;
   try {
     // Setup belongs to the same cleanup boundary as the request. A failed
     // deadline must not dispatch work or leave a parent subscription behind.
     signal.addEventListener("abort", cancel, { once: true });
-    if (signal.aborted) controller.abort();
+    if (signal.aborted) cancel();
     timer = setTimeout(() => {
       if (retired || signal.aborted) return;
       cancel();
@@ -21,11 +27,11 @@ export async function withLocalRequestDeadline<T>(signal: AbortSignal, milliseco
       // actually settles. An observer cannot replace the request's outcome.
       try { onDeadline?.(); } catch { /* A failed notice cannot release the request. */ }
     }, milliseconds);
-    if (controller.signal.aborted) throw new Error("Local request cancelled");
+    if (cancellationObserved || controller.signal.aborted) throw new Error("Local request cancelled");
     const result = await request(controller.signal);
     const finished = now();
     const elapsed = Number.isFinite(finished) ? finished - began : NaN;
-    if (controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= milliseconds) throw new Error("Local request cancelled");
+    if (cancellationObserved || controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= milliseconds) throw new Error("Local request cancelled");
     return result;
   } finally {
     retired = true;

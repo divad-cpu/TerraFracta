@@ -49,18 +49,19 @@ function harness(entry, clock) {
   const compiled = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: {
     jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
   } }).outputText;
-  let cursor = 0, effect, cleanup; const cells = [];
+  let cursor = 0, effect, cleanup, layout, layoutCleanup; const cells = [];
   const hooks = {
     useState(initial) { const index = cursor++; cells[index] ??= initial; return [cells[index], value => { cells[index] = value; }]; },
     useRef(initial) { const index = cursor++; cells[index] ??= { current: initial }; return cells[index]; },
     useEffect(callback) { effect = callback; },
+    useLayoutEffect(callback) { layout = callback; },
   };
   new Function("require", "exports", compiled)(name => name === "react" ? hooks
     : name === "./local-request-deadline.ts" ? { withLocalRequestDeadline: (signal, ms, read, _now, notice) => {
       assert.equal(ms, entry.deadline); return withLocalRequestDeadline(signal, ms, read, clock, notice);
     } } : native(name), exports);
   const render = () => { cursor = 0; return exports[entry.component](); };
-  return { markup: () => renderToStaticMarkup(render()), mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); },
+  return { markup: () => renderToStaticMarkup(render()), mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); },
     buttons() { return nodes(render()).filter(item => item.type === "button").map(item => item.props); } };
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));

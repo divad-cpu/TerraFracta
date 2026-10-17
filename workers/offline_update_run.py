@@ -218,6 +218,12 @@ def rehearse_update_run(request: OfflineRunRequest) -> OfflineRunReport:
             or candidate.evidence.locator != item.source.locator
             or candidate.candidate_source_id != candidate.evidence.source_id
             or candidate.evidence.source_id != item.source.source_key
+            # A current source receipt cannot lend this run an earlier or
+            # future decision. Source retrieval may legitimately predate it.
+            or not isinstance(candidate.evaluated_at, datetime)
+            or candidate.evaluated_at.tzinfo is None
+            or candidate.evaluated_at.utcoffset() != timezone.utc.utcoffset(candidate.evaluated_at)
+            or not request.started_at <= candidate.evaluated_at <= request.finished_at
         ):
             outcomes.append(OfflineItemResult(
                 item.captured.item_key, "held", ("candidate_binding_invalid",),

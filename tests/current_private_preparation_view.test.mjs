@@ -54,3 +54,17 @@ test("old page read is aborted and its late result cannot overwrite the next vis
     assert.match(h.markup(), /local observation is unavailable/); assert.doesNotMatch(h.markup(), /Observed <time/);
   } finally { h.unmount(); globalThis.fetch = original; }
 });
+
+test("a new private-preparation mount waits for an ignored-abort predecessor before another GET", async () => {
+  const original = globalThis.fetch, pending = [];
+  globalThis.fetch = async (_url, options) => new Promise((resolve, reject) => pending.push({ resolve, reject, signal: options.signal }));
+  const h = harness();
+  try {
+    h.mount(); h.button().onClick(); h.remount(); assert.equal(pending[0].signal.aborted, true);
+    assert.equal(h.button().disabled, true); h.button().onClick(); assert.equal(pending.length, 1);
+    pending[0].resolve(Response.json(good())); await settle();
+    assert.doesNotMatch(h.markup(), /Observed <time|Observed at this check/);
+    assert.equal(h.button().disabled, false); h.button().onClick(); assert.equal(pending.length, 2);
+    pending[1].resolve(Response.json(good())); await settle(); assert.match(h.markup(), /Observed <time/);
+  } finally { h.unmount(); globalThis.fetch = original; }
+});

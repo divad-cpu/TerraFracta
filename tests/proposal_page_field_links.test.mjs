@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createHash} from 'node:crypto';
@@ -52,5 +53,5 @@ test('literal captured values remain escaped and recorded dates and checked held
  const html=render(recorded(p=>{p.snapshot.title='Changed <script>title</script>';p.snapshot.summary='Changed <a href="/private">summary</a>';p.snapshot.lastEvidenceReviewOn='2026-09-27';}),proposalScope(),{...proposalScope(),beforeDecidedAt:'2026-09-28T07:00:00.000001Z',beforeDecisionId:proposalId(90),reason:'material_conflict'});
  assert.ok(html.includes('&lt;script&gt;title'));assert.ok(html.includes('&lt;a href=&quot;/private&quot;&gt;'));assert.ok(!html.includes('<script>'));assert.ok(!html.includes('href="/private"'));assert.ok(html.includes('Recorded last evidence review: <time dateTime="2026-09-27">2026-09-27</time>'));
  assert.ok(html.includes('Return to the selected held page (new read)'));assert.ok(html.includes('navigation only'));assert.ok(html.includes('reason=material_conflict'));assert.ok(html.includes('Unreviewed.'));assert.ok(html.includes('Conflicting evidence'));
- for(const unsafe of ['<form','<button','href="https:','rawArchivePath'])assert.ok(!html.includes(unsafe));targets(html);
+ assertUnsentProposalControls(html);for(const unsafe of ['href="https:','rawArchivePath'])assert.ok(!html.includes(unsafe));targets(html);
 });

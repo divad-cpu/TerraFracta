@@ -32,6 +32,34 @@ def parse(value: object, allowed: AllowedEvidence = ALLOWED):
 
 
 class ModelProposalTests(unittest.TestCase):
+    def test_only_builtin_output_bytes_are_measured_and_decoded(self):
+        calls = []
+        class PlainBytes(bytes): pass
+        class OtherDecode(bytes):
+            def decode(self, *args, **kwargs):
+                calls.append('decode'); return json.dumps(VALID)
+        class HiddenLength(bytes):
+            def __len__(self):
+                calls.append('len'); return 1
+        raw = json.dumps(VALID).encode()
+        for bad in [bytearray(raw), memoryview(raw), PlainBytes(raw), OtherDecode(b'{}'), HiddenLength(b' ' * 8193 + raw)]:
+            with self.assertRaises(ModelProposalError): parse_untrusted_model_proposal(bad, ALLOWED)
+        self.assertEqual(calls, [])
+        self.assertEqual(parse_untrusted_model_proposal(raw, ALLOWED).review_state, 'unverified')
+
+    def test_escaped_unpaired_surrogates_refuse_but_exact_unicode_lf_tab_remain(self):
+        for field in ['proposed_assertion', 'source_date_text']:
+            for character in ['\ud800', '\udfff']:
+                raw = json.dumps({**VALID, field: 'Invented scalar ' + character}).encode('utf8')
+                with self.assertRaises(ModelProposalError): parse_untrusted_model_proposal(raw, ALLOWED)
+        value = {**VALID, 'proposed_assertion': 'Invented Å source 😀\nwith\tinternal tab.',
+                 'source_date_text': 'Å 2026 😀'}
+        for ascii_only in [True, False]:
+            parsed = parse_untrusted_model_proposal(json.dumps(value, ensure_ascii=ascii_only).encode('utf8'), ALLOWED)
+            self.assertEqual(parsed.proposed_assertion, value['proposed_assertion'])
+            self.assertEqual(parsed.source_date_text, value['source_date_text'])
+            self.assertEqual(parsed.review_state, 'unverified')
+
     def test_valid_output_is_still_unverified(self) -> None:
         proposal = parse(VALID)
         self.assertEqual(proposal.review_state, "unverified")

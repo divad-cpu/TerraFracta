@@ -99,7 +99,7 @@ test("weekly callback is explicit, clears old status on refresh and explains cat
     resolve(Response.json({ state: "observed", observation: { ...good().observation,
       reason: "scheduled_run_missing_manual_catchup_complete", coverage: "complete", totalReceipts: 1 } }));
     await new Promise(done => setTimeout(done, 0));
-    assert.ok(ui.markup().includes("weekly trigger still has no completed rehearsal"));
+    assert.ok(ui.markup().includes("weekly trigger still had no completed rehearsal"));
     assert.ok(ui.markup().includes("No real schedule is enabled")); ui.unmount();
   } finally { globalThis.fetch = original; }
 });

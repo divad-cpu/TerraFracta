@@ -18,16 +18,17 @@ function nodes(value) {
 }
 function harness(initialProps = {}) {
   let props = initialProps;
-  let cursor = 0, effect, cleanup; const cells = []; const native = createRequire(path), exports = {};
+  let cursor = 0, effect, cleanup, layout, layoutCleanup; const cells = []; const native = createRequire(path), exports = {};
   const hooks = {
     useState(initial) { const index = cursor++; cells[index] ??= initial; return [cells[index], value => { cells[index] = value; }]; },
     useRef(initial) { const index = cursor++; cells[index] ??= { current: initial }; return cells[index]; },
     useEffect(callback) { effect = callback; },
+    useLayoutEffect(callback) { layout = callback; },
   };
   new Function("require", "exports", compiled)(name => name === "react" ? hooks : name === "./correction-review-operation.ts" ? contract : native(name), exports);
   const render = () => { cursor = 0; return exports.CorrectionReviewOperationView(props); };
   const markup = () => renderToStaticMarkup(render());
-  return { render, markup, mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); },
+  return { render, markup, mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); },
     switchMode(supervised) { props = { supervised };const beforeEffects = markup();cleanup?.();cleanup = effect();return beforeEffects; },
     button() { return nodes(render()).find(item => item.type === "button").props; } };
 }

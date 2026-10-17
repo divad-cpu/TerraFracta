@@ -21,7 +21,7 @@ function example() {
 const render = record => renderToStaticMarkup(createElement(IssueEvidence,{issue:record}));
 const occurrences = record => record.claims.flatMap(claim => claim.evidence.map((source,index)=>({claim,source,index,anchor:issueReferenceAnchor(claim.id,index)})));
 const indexed = record => issueSourceIndex(record).groups.flatMap(group=>group.references);
-const citationLabels = html => new Map([...html.matchAll(/<li id="([^"]+)" class="citation-card[^"]*"><p class="citation-card__relation">([^<]+)<\/p>/g)].map(m=>[m[1],m[2]]));
+const citationLabels = html => new Map([...html.matchAll(/<li id="([^"]+)" class="citation-card[^"]*" tabindex="-1"><p class="citation-card__relation">([^<]+)<\/p>/g)].map(m=>[m[1],m[2]]));
 function freeze(value) { if(value && typeof value==='object') { Object.values(value).forEach(freeze);Object.freeze(value); } return value; }
 
 test('global ordinals precede source-version grouping and retain duplicated occurrences',()=>{

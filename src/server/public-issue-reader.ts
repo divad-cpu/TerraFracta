@@ -20,12 +20,15 @@ export function canonicalPublicIssueRoute(value: unknown): PublicIssueRoute | nu
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const route = value as Record<string, unknown>;
   const keys = Object.keys(route).sort();
-  if (keys.length !== 2 || keys[0] !== "issueSlug" || keys[1] !== "jurisdictionSlug" ||
-      typeof route.jurisdictionSlug !== "string" || typeof route.issueSlug !== "string" ||
-      route.jurisdictionSlug.length > 80 || route.issueSlug.length > 100 ||
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(route.jurisdictionSlug) ||
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(route.issueSlug)) return null;
-  return Object.freeze({ jurisdictionSlug: route.jurisdictionSlug, issueSlug: route.issueSlug });
+  if (keys.length !== 2 || keys[0] !== "issueSlug" || keys[1] !== "jurisdictionSlug") return null;
+  // Validate and return one observation; caller getters cannot replace checked scope.
+  const jurisdictionSlug = route.jurisdictionSlug;
+  if (typeof jurisdictionSlug !== "string") return null;
+  const issueSlug = route.issueSlug;
+  if (typeof issueSlug !== "string" || jurisdictionSlug.length > 80 || issueSlug.length > 100 ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(jurisdictionSlug) ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(issueSlug)) return null;
+  return Object.freeze({ jurisdictionSlug, issueSlug });
 }
 
 export function createPublicIssueReader(

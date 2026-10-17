@@ -75,7 +75,7 @@ test("actual glossary page has labelled native search, stable definition anchors
   const html = await page({});
   assert.equal((html.match(/<h1>/g) ?? []).length, 1);
   for (const value of ['action="/methodology/glossary"', 'method="get"', 'name="q"', 'name="category"',
-    'for="glossary-query"', 'for="glossary-category"', 'aria-describedby="glossary-search-help"', '19 terms match',
+    'for="glossary-query"', 'for="glossary-category"', 'aria-describedby="glossary-search-help"', '22 terms match',
     'href="/methodology"', 'href="/sources"', 'No real-source dossier']) assert.ok(html.includes(value), value);
   for (const term of glossaryTerms) assert.ok(html.includes(`id="${term.slug}"`) && html.includes(`href="#${term.slug}"`), term.slug);
 });

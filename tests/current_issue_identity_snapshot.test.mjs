@@ -1,3 +1,4 @@
+import { readerWrapperLifetime } from "./helpers/reader_wrapper_lifetime.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
@@ -84,11 +85,11 @@ test('invalid or first-faulting identity never reaches the read port and stays t
 
 test('actual current-edition wrapper withholds the entire old subtree after a pending identity drift', async () => {
   const priorDocument = globalThis.document, c = controls(), owner = expected(), listeners = new Map();
-  let state = { kind: 'current' }, effect, settle;
+  let state = { kind: 'current' }, effect, settle; const lifetime = readerWrapperLifetime(callback => { effect = callback; });
   globalThis.document = { visibilityState: 'visible', addEventListener: (key, callback) => listeners.set(key, callback), removeEventListener: key => listeners.delete(key) };
   try {
     const Component = loadTsx(new URL('../app/reader-preview/CurrentIssueEdition.tsx', import.meta.url), name => name === 'react'
-      ? { useState: () => [state, value => { state = value; }], useEffect: callback => { effect = callback; } }
+      ? { useState: () => [state, value => { state = value; }], ...lifetime }
       : name === '../../src/current-issue-watch.ts'
         ? { startCurrentIssueWatch: (identity, changed) => startCurrentIssueWatch(identity, changed, () => new Promise(resolve => { settle = resolve; }), c) } : undefined).CurrentIssueEdition;
     const props = { expected: owner, latestHref: '/reader-preview/catalogue', children: createElement('div', null, 'OLD_DOSSIER_CANARY', createElement('a', { href: '#evidence' }, 'OLD_SOURCE_CANARY'), createElement('textarea', { defaultValue: 'UNSENT_DRAFT_CANARY' })) };

@@ -14,10 +14,15 @@ export const OPERATOR_AUDIT_BYTES = 65_536;
 export const OPERATOR_AUDIT_TIMEOUT_MS = 3_000;
 
 export function canonicalOperatorAuditScope(value: unknown): Readonly<OperatorAuditScope> | null {
-  const parsed = operatorAuditScopeSchema.safeParse(value);
-  if (!parsed.success) return null;
-  if (parsed.data.cursor !== null) Object.freeze(parsed.data.cursor);
-  return Object.freeze(parsed.data);
+  try {
+    const parsed = operatorAuditScopeSchema.safeParse(value);
+    if (!parsed.success) return null;
+    if (parsed.data.cursor !== null) Object.freeze(parsed.data.cursor);
+    return Object.freeze(parsed.data);
+  } catch {
+    // Unknown caller property/trap faults cannot become an audit read.
+    return null;
+  }
 }
 
 export function createOperatorAuditReader(provider?: OperatorAuditProvider, now = () => performance.now(),

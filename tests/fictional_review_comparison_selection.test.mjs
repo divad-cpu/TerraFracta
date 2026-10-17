@@ -12,12 +12,12 @@ function receipt(later = false) {
     report: later ? JSON.parse(readFileSync(new URL("../fixtures/fictional_revised_update_report.json", import.meta.url))) : structuredClone(baseline) };
 }
 function desk() {
-  let cursor = 0, effects = [], cleanups = []; const cells = [], updates = [];
+  let cursor = 0, effects = [], cleanups = [], layouts = [], layoutCleanups = []; const cells = [], updates = [];
   const hooks = { useState(initial) { const i = cursor++; if (!(i in cells)) cells[i] = initial;
     return [cells[i], value => { const next = typeof value === "function" ? value(cells[i]) : value;
       updates.push({ before: cells[i], after: next }); cells[i] = next; }]; },
     useRef(initial) { const i = cursor++; if (!(i in cells)) cells[i] = { current: initial }; return cells[i]; },
-    useEffect(callback) { effects.push(callback); } };
+    useLayoutEffect(callback) { layouts.push(callback); }, useEffect(callback) { effects.push(callback); } };
   const saved = loadTsx(new URL("../src/fictional-saved-run-view.tsx", import.meta.url));
   const pair = loadTsx(new URL("../app/editorial-preview/saved-run-comparison.tsx", import.meta.url));
   const comparison = loadTsx(new URL("../app/update-preview/comparison.tsx", import.meta.url));
@@ -26,10 +26,10 @@ function desk() {
     name === "react" ? hooks : name === "../update-preview/history" ? { FictionalHistory: History } :
     name === "../../src/fictional-saved-run-view" ? saved : name === "./saved-run-comparison" ? pair :
     name === "../update-preview/comparison" ? comparison : undefined);
-  const render = () => { cursor = 0; effects = []; return parent.FictionalReviewDesk({ baseline }); };
+  const render = () => { cursor = 0; effects = []; layouts = []; return parent.FictionalReviewDesk({ baseline }); };
   const history = () => nodes(render()).find(x => x.type === History).props;
-  return { render, updates, mount() { render(); cleanups = effects.map(fn => fn()).filter(fn => typeof fn === "function"); },
-    unmount() { for (const fn of cleanups) fn(); }, inspect(value) { history().onInspect(value); }, earlier(value) { history().onUseEarlier(value); },
+  return { render, updates, mount() { render(); layoutCleanups = layouts.map(fn => fn()).filter(fn => typeof fn === "function"); cleanups = effects.map(fn => fn()).filter(fn => typeof fn === "function"); },
+    unmount() { for (const fn of layoutCleanups) fn(); for (const fn of cleanups) fn(); }, inspect(value) { history().onInspect(value); }, earlier(value) { history().onUseEarlier(value); },
     clear() { nodes(render()).find(x => x.type === "button" && text(x.props.children) === "Clear comparison selection").props.onClick(); },
     guard(kind) { const type = kind === "pair" ? pair.SavedRunComparison : kind === "baseline" ? comparison.FictionalComparison : saved.FictionalSavedRunView;
       const node = nodes(render()).find(x => x.type === type); assert.ok(node); return node.props.isCurrent ?? (() => true); } };

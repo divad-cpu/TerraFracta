@@ -133,6 +133,13 @@ export function currentCatalogueIssueHref(issue: PublicIssueProjection, view: Cu
   } catch { return plain; }
 }
 
+// Enter only the already defined typed statement search. Directory words stay
+// independent; the next visit still checks the current edition and route.
+export function currentCatalogueStatementHref(issue: PublicIssueProjection, type: StatementType, selection: CurrentCatalogueSelection) {
+  const href = currentCatalogueIssueHref(issue, "search", selection);
+  return Object.hasOwn(statementLabels, type) ? `${href}&type=${encodeURIComponent(type)}` : href;
+}
+
 // The context is a bounded presentation selection, not a return address or a
 // stored result. Both directions use a new current-route read in the same edition.
 export function currentIssueInspectionHref(issue: PublicIssueProjection, selection: CurrentIssueSelection) {
@@ -201,7 +208,8 @@ function matchFields(fields: [string, string][], query: string) {
 }
 
 function sourceSearchFields(source: PublicIssueProjection["claims"][number]["evidence"][number]): [string, string][] {
-  return [["Source title", source.title], ["Publisher", source.publisher], ["Exact location", source.locator]];
+  return [["Source title", source.title], ["Publisher", source.publisher], ["Exact location", source.locator],
+    ["Recorded source version", source.sourceVersionId]];
 }
 
 export function currentIssueSearchMatches(issue: PublicIssueProjection, query: string, type: StatementType | "" = "") {
@@ -230,7 +238,7 @@ export function currentIssueReferenceMatches(issue: PublicIssueProjection, selec
   const matched = references.flatMap(row => {
     if ((selection.statementType && row.claim.type !== selection.statementType) || (selection.relation && row.source.relation !== selection.relation)) return [];
     const match = matchFields([["Issue title", issue.title], ["Statement", row.claim.assertion], ["Data period", row.claim.periodLabel],
-      ["Source title", row.source.title], ["Publisher", row.source.publisher], ["Exact location", row.source.locator],
+      ...sourceSearchFields(row.source),
       ["Source URL", row.source.url], ["Source published", row.source.sourcePublishedOn ?? ""], ["Retrieved", row.source.retrievedAt]], selection.query);
     return match.matched ? [{ ...row, matchedFields: match.fields }] : [];
   });

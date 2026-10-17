@@ -1,11 +1,17 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { readWeeklyRehearsalReport, WEEKLY_REPORT_BYTE_LIMIT, type WeeklyRehearsalReport } from "./weekly-rehearsal-report.ts";
 import { weeklyRehearsalTimingFields } from "./weekly-rehearsal-timing.ts";
 import { weeklyRehearsalReasonMeanings } from "./weekly-rehearsal-reasons.ts";
 import { withLocalRequestDeadline } from "./local-request-deadline.ts";
 
 type View = { state: "idle" | "reading" | "held" | "busy" } | { state: "loaded"; report: WeeklyRehearsalReport };
+const physicalWeeklyReportRead: { current: Promise<void> | null } = { current: null };
+function cancelReportRead(controller: AbortController | null) {
+  // Presentation retires independently; the physical read keeps its slot until
+  // settlement even if the platform cannot perform the requested abort.
+  try { controller?.abort(); } catch { /* Continue the owned presentation cleanup. */ }
+}
 export function WeeklyRehearsalReportView() {
   const [recordedView, setView] = useState<View>({ state: "idle" }), [reading, setReading] = useState(false);
   const generation = useRef(0), visit = useRef<object | null>(null), pending = useRef<AbortController | null>(null);
@@ -16,33 +22,40 @@ export function WeeklyRehearsalReportView() {
   const ownsView = () => admitted && visit.current === owner && renderedGeneration === generation.current;
   function clear() {
     if (!ownsView()) return;
-    generation.current++; observation.current = null; pending.current?.abort(); setView({ state: "idle" });
+    generation.current++; observation.current = null; cancelReportRead(pending.current); setView({ state: "idle" });
   }
   async function select(file: File | undefined) {
     if (!ownsView()) return;
     if (!file) { clear(); return; }
     const current = ++generation.current; observation.current = null;
-    if (pending.current) { pending.current.abort(); setView({ state: "busy" }); return; }
+    if (pending.current || physicalWeeklyReportRead.current) { cancelReportRead(pending.current); setView({ state: "busy" }); return; }
     const isCurrent = () => visit.current === owner && current === generation.current;
     let controller: AbortController;
     try { controller = new AbortController(); }
     catch { if (isCurrent()) setView({ state: "held" }); return; }
     pending.current = controller;
     setReading(true); setView({ state: "reading" });
+    let settled: Promise<void> | null = null;
+    let releaseOwnedRead = () => {};
     try {
-      const report = await withLocalRequestDeadline(controller.signal, 8_000, async signal => {
+      settled = new Promise<void>(resolve => { releaseOwnedRead = resolve; });
+      physicalWeeklyReportRead.current = settled;
+      const read = withLocalRequestDeadline(controller.signal, 8_000, async signal => {
         const size = file.size;
         if (!Number.isSafeInteger(size) || size < 2 || size > WEEKLY_REPORT_BYTE_LIMIT) throw new Error("Report size refused");
         const bytes = await file.slice(0, WEEKLY_REPORT_BYTE_LIMIT + 1).arrayBuffer();
         if (signal.aborted || !isCurrent()) throw new Error("Report read retired");
         return readWeeklyRehearsalReport(bytes, size);
       }, undefined, () => {
-        controller.abort();
+        cancelReportRead(controller);
         if (isCurrent()) setView({ state: "held" });
       });
+      const report = await read;
       if (isCurrent()) { observation.current = report; setView({ state: "loaded", report }); }
     } catch { if (isCurrent()) setView({ state: "held" }); }
     finally {
+      releaseOwnedRead();
+      if (settled !== null && physicalWeeklyReportRead.current === settled) physicalWeeklyReportRead.current = null;
       if (pending.current === controller) {
         pending.current = null;
         // A retired physical read releases only availability to its successor.
@@ -50,12 +63,21 @@ export function WeeklyRehearsalReportView() {
       }
     }
   }
+  useLayoutEffect(() => () => {
+    visit.current = null; observation.current = null; generation.current++; cancelReportRead(pending.current);
+  }, []);
   useEffect(() => {
     const current = {}; visit.current = current; setOwner(current); observation.current = null;
-    generation.current++; setView({ state: "idle" }); setReading(pending.current !== null);
+    generation.current++; setView({ state: "idle" });
+    const occupied = physicalWeeklyReportRead.current !== null;
+    setReading(pending.current !== null || occupied);
+    if (occupied && pending.current === null) void (async () => {
+      while (physicalWeeklyReportRead.current) await physicalWeeklyReportRead.current;
+      if (visit.current === current && pending.current === null) setReading(false);
+    })();
     return () => {
       if (visit.current !== current) return;
-      visit.current = null; observation.current = null; generation.current++; pending.current?.abort();
+      visit.current = null; observation.current = null; generation.current++; cancelReportRead(pending.current);
     };
   }, []);
   const time = (value: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));

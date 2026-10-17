@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
@@ -26,7 +27,7 @@ test('recorded change overview links exact changed wording to both versions and 
     'No page fields changed.','do not measure importance, correctness or publication eligibility','Unverified proposal','Unreviewed.',
     'Conflicting evidence','Missing conflicting evidence is not evidence of agreement','Current public eligibility and source health were not checked'])assert.ok(html.includes(text),text);
   assert.ok(html.includes('href="#proposal-base-claim-'+proposalId(3)+'"'));assert.ok(html.includes('href="#proposal-proposed-claim-'+proposalId(3)+'"'));assertTargets(html);
-  assert.ok(!html.includes('<form'));assert.ok(!html.includes('<button'));assert.ok(!html.includes('href="https://'));
+  assertUnsentProposalControls(html);assert.ok(!html.includes('href="https://'));
 });
 test('page field and source-reference changes are explicit while captured source values remain escaped',()=>{
   const report=recorded((p,b)=>{p.snapshot.title='Changed <em>title</em>';p.snapshot.summary='Changed summary.';p.snapshot.lastEvidenceReviewOn='2026-09-29';

@@ -13,7 +13,7 @@
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "errors:export": "node --experimental-strip-types scripts/export_error_log.mjs",
-    "test:offline:node": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:offline:node": "node --experimental-strip-types --test --test-isolation=none --test-concurrency=1 tests/*.test.mjs",
     "check:local": "python3 scripts/check_local.py",
     "rehearse:connected": "uv run --locked --no-sync python -m scripts.run_connected_fictional_update",
     "rehearse:source": "uv run --locked --no-sync python -m scripts.run_raw_transport_pair_trial",

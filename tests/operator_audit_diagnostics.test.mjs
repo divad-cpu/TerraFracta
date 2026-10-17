@@ -118,7 +118,7 @@ test("actual caught audit fault persists once and reaches bounded export import 
   assert.equal(inspected.events[0].code, "operator_audit_read"); assert.equal(inspected.events[0].origin, "server");
   const output = join(parent, "export.json"); assert.equal((await exportErrorLog(directory, output)).events, 1);
   const raw = await readFile(output), buffer = Uint8Array.from(raw).buffer, report = readDiagnosticExport(buffer);
-  assert.equal(report.counts.operator_audit_read, 1); assert.equal(report.schemaVersion, 8);
+  assert.equal(report.counts.operator_audit_read, 1); assert.equal(report.schemaVersion, 9);
   assert.equal(report.captureCompleteness, "unknown");
   assert.equal(report.buildBinding, "not_bound_to_a_deployed_build");
   const selected = selectDiagnosticEvents(report, diagnosticSelection({ code: "operator_audit_read", origin: "server" }));

@@ -10,6 +10,6 @@ export default async function HeldDecisionsPage(props:{searchParams:Promise<Reco
  if(process.env.NODE_ENV!=="development")notFound();
  let selected;try{selected=heldBrowseSelection(await props.searchParams, unstable_rethrow);}catch(error){unstable_rethrow(error);selected=null;}
  if(selected===null)return <HeldDecisionsView decision={{kind:"invalid_scope"}}/>;
- try{return <HeldDecisionsView decision={await readHeldDecisions(selected.scope)} selection={selected.scope} reason={selected.reason} runReturn={selected.runReturn}/>;}
- catch{return <HeldDecisionsView decision={{kind:"unavailable"}} selection={selected.scope} reason={selected.reason} runReturn={selected.runReturn}/>;}
+ try{return <HeldDecisionsView decision={await readHeldDecisions(selected.scope)} selection={selected.scope} reason={selected.reason} referenceQuery={selected.referenceQuery} runReturn={selected.runReturn}/>;}
+ catch{return <HeldDecisionsView decision={{kind:"unavailable"}} selection={selected.scope} reason={selected.reason} referenceQuery={selected.referenceQuery} runReturn={selected.runReturn}/>;}
 }

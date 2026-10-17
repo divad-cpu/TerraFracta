@@ -4,19 +4,25 @@ type Claim = PublicIssueProjection["claims"][number];
 export function issueReferenceAnchor(claimId: string, referenceIndex: number) {
   return `reference-${claimId}-${referenceIndex + 1}`;
 }
+export function issueSourceGroupAnchor(groupIndex: number) {
+  return `recorded-source-group-${groupIndex + 1}`;
+}
 type IndexedReference = { claim: Claim; source: Claim["evidence"][number]; anchor: string; referenceNumber: number };
 
 // Presentation grouping of the caller's checked current projection. Identity is
-// an exact source version, never a URL/publisher or inferred independent origin.
+// an exact source-version UUID, never a URL/publisher or inferred independent origin.
+// UUID letter case cannot create another version; keep every supplied spelling
+// and metadata on its original reference, with the first spelling on the group.
 // Keep each reference's metadata instead of selecting one representative title.
 export function issueSourceIndex(issue: PublicIssueProjection) {
   const versions = new Map<string, { sourceVersionId: string; references: IndexedReference[] }>();
   let referenceNumber = 0;
   for (const claim of issue.claims) claim.evidence.forEach((source, index) => {
-    let version = versions.get(source.sourceVersionId);
+    const identity = source.sourceVersionId.toLowerCase();
+    let version = versions.get(identity);
     if (!version) {
       version = { sourceVersionId: source.sourceVersionId, references: [] };
-      versions.set(source.sourceVersionId, version);
+      versions.set(identity, version);
     }
     version.references.push({ claim, source, anchor: issueReferenceAnchor(claim.id, index), referenceNumber: ++referenceNumber });
   });

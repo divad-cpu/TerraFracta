@@ -26,6 +26,19 @@ const attribute = (value, name) => value.match(new RegExp(`(?:^|\\s)${name}="([^
 const acceptance = (render = renderToStaticMarkup) => new Function("assert", "load", "renderToStaticMarkup", "createElement", "heldPageSource", "hash", "attribute", "nativeHelperUrl", `${node.getText(source).replaceAll("import.meta.url", "nativeHelperUrl")}; return heldSurfaces;`)(assert, load, render, createElement, pageSource, hash, attribute, new URL("../scripts/check_postgres_operator_audit_native.mjs", import.meta.url).href);
 const check = acceptance();
 
+for (const [name, mutate] of [
+  ["a write method", html => html.replace('method="get"', 'method="post"')],
+  ["a foreign form target", html => html.replace('action="/editorial-preview/held"', 'action="https://foreign.invalid/write"')],
+  ["an extra submit action", html => html + '<button type="submit">Approve publication</button>'],
+  ...["submit", "image", "button", "reset"].map(type =>
+    [`an extra ${type} input`, html => html.replace('</form>', `<input type="${type}" value="Approve publication"/></form>`)]),
+]) test(`native held-page acceptance refuses ${name} while preserving GET inspection`, async () => {
+  let changed = false;
+  const reject = acceptance(element => { const html = renderToStaticMarkup(element), altered = mutate(html); changed ||= altered !== html; return altered; });
+  await assert.rejects(reject({ kind: "ok", report: heldReport() }, heldScope()), assert.AssertionError);
+  assert.ok(changed, "The rejection witness must change actual rendered markup");
+});
+
 test("native held-page acceptance agrees with the approved current list and exact captured-proposal links", async () => {
   const result = await check({ kind: "ok", report: heldReport() }, heldScope());
   assert.equal(result.page.readerCalls, 1); assert.equal(result.view.sha256, result.page.sha256);

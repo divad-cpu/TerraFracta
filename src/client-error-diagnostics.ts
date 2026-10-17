@@ -2,11 +2,13 @@ import { diagnosticIntentSchema, diagnosticCodes, type DiagnosticCode } from "./
 
 export function createClientErrorReporter(environment: string | undefined,
   send: typeof fetch = fetch, uuid: () => string = () => crypto.randomUUID(), now = () => performance.now()) {
-  let windowStart = -Infinity, count = 0, active = false;
+  let windowStart = -Infinity, count = 0, active = false, observingClock = false;
   return async (code: DiagnosticCode): Promise<string | null> => {
-    if (environment !== "development" || diagnosticCodes[code]?.origin !== "browser" || active) return null;
+    if (environment !== "development" || diagnosticCodes[code]?.origin !== "browser" || active || observingClock) return null;
     let time: number;
+    observingClock = true;
     try { time = now(); } catch { return null; }
+    finally { observingClock = false; }
     if (!Number.isFinite(time) || time < windowStart) return null;
     if (time - windowStart >= 60_000) { windowStart = time; count = 0; }
     if (count >= 10) return null;
@@ -33,6 +35,7 @@ export function createClientErrorReporter(environment: string | undefined,
     const work = (async () => {
       try {
         const intent = diagnosticIntentSchema.parse({ eventId: uuid(), code });
+        if (expired || controller.signal.aborted) return null;
         const response = await send("/api/dev/error-log", { method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify(intent), cache: "no-store", credentials: "same-origin", signal: controller.signal });
         const elapsed = now() - time;

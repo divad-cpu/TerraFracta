@@ -22,11 +22,11 @@ function nodes(value) {
   return [value, ...nodes(value.props?.children)];
 }
 function harness() {
-  let cursor = 0, effect, cleanup; const cells = [], modules = new Map();
+  let cursor = 0, effect, cleanup, layout, layoutCleanup; const cells = [], modules = new Map();
   const hooks = {
     useState(initial) { const index = cursor++; cells[index] ??= initial; return [cells[index], value => { cells[index] = value; }]; },
     useRef(initial) { const index = cursor++; cells[index] ??= { current: initial }; return cells[index]; },
-    useId() { return "saved-errors"; }, useEffect(callback) { effect = callback; },
+    useId() { return "saved-errors"; }, useEffect(callback) { effect = callback; }, useLayoutEffect(callback) { layout = callback; },
   };
   function load(path) {
     if (modules.has(path.href)) return modules.get(path.href);
@@ -40,7 +40,7 @@ function harness() {
   }
   const component = load(new URL("../src/diagnostic-import-view.tsx", import.meta.url)).DiagnosticImportView;
   const render = () => { cursor = 0; return component(); };
-  return { markup: () => renderToStaticMarkup(render()), mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); },
+  return { markup: () => renderToStaticMarkup(render()), mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); },
     input(type = "file") { return nodes(render()).find(item => item.type === "input" && (item.props.type ?? "text") === type).props; },
     button(text) { return nodes(render()).find(item => item.type === "button" && nodesText(item.props.children) === text).props; },
     controls(type) { return nodes(render()).filter(item => item.type === type).map(item => item.props); } };

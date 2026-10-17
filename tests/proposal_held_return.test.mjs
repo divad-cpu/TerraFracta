@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from 'node:assert/strict';import test from 'node:test';
 import {createElement} from 'react';import {renderToStaticMarkup} from 'react-dom/server';
 import {loadTsx} from './helpers/tsx_loader.mjs';
@@ -32,7 +33,8 @@ test('actual filtered older held page to captured proposal and back keeps exact 
  const comparison=await h.renderProposal(inspect);assert.deepEqual(h.calls.proposal,[proposalScope()]);assert.ok(comparison.includes('The invented share was 8.2%.'));
  const back=q(comparison,'Return to the selected held page (new read)');assert.deepEqual(back,heldQuery());
  const second=await h.renderHeld(back);assert.deepEqual(h.calls.held,[scope(),scope()]);assert.ok(second.includes('Showing 1 of 2 held decisions'));
- for(const text of ['navigation only','will be checked again','may have changed','Unverified proposal','no approval, editing, collection or publication control'])assert.ok(comparison.includes(text),text);
+ assertUnsentProposalControls(comparison);
+ for(const text of ['navigation only','will be checked again','may have changed','Unverified proposal','no approval, collection or publication control'])assert.ok(comparison.includes(text),text);
 });
 test('legacy first-page all-reason inspection preserves the existing two-key proposal and run-only return',async()=>{
  const h=harness(),first=await h.renderHeld({runId:proposalId(1)});assert.deepEqual(q(first,'Inspect captured proposal'),proposalScope());

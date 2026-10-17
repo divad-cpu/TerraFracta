@@ -58,15 +58,15 @@ test("closed no-draft reports and malformed or unbound reports cannot acquire ne
 });
 const nodes = x => Array.isArray(x) ? x.flatMap(nodes) : x && typeof x === "object" ? [x, ...nodes(x.props?.children)] : [];
 test("the actual operation updates the pair from saved selection to fresh settlement without new navigation callbacks", async () => {
-  let cursor = 0, effects = [], finish; const cells = [], requests = [];
+  let cursor = 0, effects = [], layouts = [], layoutIndex = 0, finish; const cells = [], requests = [];
   const hooks = { useId: () => "operation-port", useState(initial) { const i = cursor++; if (!(i in cells)) cells[i] = initial;
     return [cells[i], value => { cells[i] = typeof value === "function" ? value(cells[i]) : value; }]; },
-    useRef(initial) { const i = cursor++; if (!(i in cells)) cells[i] = { current: initial }; return cells[i]; }, useEffect(fn) { effects.push(fn); } };
+    useRef(initial) { const i = cursor++; if (!(i in cells)) cells[i] = { current: initial }; return cells[i]; }, useLayoutEffect(fn, deps) { const i = layoutIndex++, old = layouts[i]; if (!old || deps.some((v,j) => v !== old.deps[j])) layouts[i] = { fn, deps, cleanup: old?.cleanup, pending: true }; }, useEffect(fn) { effects.push(fn); } };
   const History = () => null, Candidate = () => null, Comparison = () => null;
   const ui = loadTsx(source, name => name === "react" ? hooks : name === "./history" ? { FictionalHistory: History } :
     name === "./candidate" ? { FictionalCandidate: Candidate } : name === "./comparison" ? { FictionalComparison: Comparison } :
     name === "../../src/fictional-update-request" ? { requestFictionalUpdate(...args) { requests.push(args); return new Promise(resolve => { finish = resolve; }); } } : undefined).UpdateOperation;
-  const render = () => { cursor = 0; effects = []; return ui({ initialReport: report(false) }); };
+  const render = () => { cursor = 0; effects = []; layoutIndex = 0; const tree = ui({ initialReport: report(false) }); for (const e of layouts) if (e.pending) { e.cleanup?.(); e.cleanup = e.fn(); e.pending = false; } return tree; };
   const boundPair = input => {
     const all = nodes(render()), index = input.items.findIndex(item => item.itemKey === input.fictionalCandidate.itemKey);
     const forward = all.filter(node => node.type === "a" && node.props.children === "Inspect this item’s checked draft");
@@ -77,7 +77,7 @@ test("the actual operation updates the pair from saved selection to fresh settle
     assert.deepEqual(all.find(node => node.type === Candidate).props.candidate, input.fictionalCandidate);
     assert.equal(forward[0].props.onClick, undefined); assert.equal(back[0].props.onClick, undefined);
   };
-  render(); const cleanup = effects[0](); render();
+  render(); const layoutCleanups = layouts.map(e => e.cleanup).filter(fn => typeof fn === "function"), passiveCleanup = effects[0](); const cleanup = () => { for (const fn of layoutCleanups) fn(); passiveCleanup?.(); }; render();
   const saved = { execution: { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", kind: "local_fictional", scenario: "revised_value", executedAt: "2026-10-10T10:01:00Z", durationMs: 1 }, report: report(true) };
   saved.report.items.reverse(); nodes(render()).find(node => node.type === History).props.onInspect(saved); boundPair(saved.report);
   nodes(render()).find(node => node.type === "form").props.onSubmit({ preventDefault() {} }); assert.equal(requests.length, 1);

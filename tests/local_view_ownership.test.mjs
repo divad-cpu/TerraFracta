@@ -13,12 +13,12 @@ const variants = [
 const turn = () => new Promise(resolve => setImmediate(resolve));
 function nodes(value) { if(Array.isArray(value))return value.flatMap(nodes); if(!value || typeof value!=="object")return [];return [value,...nodes(value.props?.children)]; }
 function harness(file, component, initialProps={}) {
-  const path=new URL(`../src/${file}.tsx`,import.meta.url), native=createRequire(path), exports={};let cursor=0,effect,cleanup,props=initialProps;const cells=[];
+  const path=new URL(`../src/${file}.tsx`,import.meta.url), native=createRequire(path), exports={};let cursor=0,effect,cleanup,layout,layoutCleanup,props=initialProps;const cells=[];
   const compiled=ts.transpileModule(readFileSync(path,"utf8"),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  const hooks={useState(initial){const i=cursor++;if(!(i in cells))cells[i]=initial;return [cells[i],value=>{cells[i]=value;}];},useRef(initial){const i=cursor++;if(!(i in cells))cells[i]={current:initial};return cells[i];},useEffect(fn){effect=fn;}};
+  const hooks={useState(initial){const i=cursor++;if(!(i in cells))cells[i]=initial;return [cells[i],value=>{cells[i]=value;}];},useRef(initial){const i=cursor++;if(!(i in cells))cells[i]={current:initial};return cells[i];},useEffect(fn){effect=fn;},useLayoutEffect(fn){layout=fn;}};
   new Function("require","exports",compiled)(name=>name==="react"?hooks:native(name),exports);
   const render=()=>{cursor=0;return exports[component](props);};const markup=()=>renderToStaticMarkup(render());
-  return {markup,mount(){render();cleanup=effect();},unmount(){cleanup?.();},switchMode(supervised){props={supervised};const before=markup();cleanup?.();cleanup=effect();return before;},button(){return nodes(render()).find(n=>n.type==="button").props;}};
+  return {markup,mount(){render();layoutCleanup=layout?.();cleanup=effect();},unmount(){layoutCleanup?.();cleanup?.();},switchMode(supervised){props={supervised};const before=markup();cleanup?.();cleanup=effect();return before;},button(){return nodes(render()).find(n=>n.type==="button").props;}};
 }
 function delayed(t, endpoint) {
   const replies=[];t.mock.method(globalThis,"fetch",(url,options)=>{assert.equal(options.method,"GET");assert.equal(options.cache,"no-store");assert.equal(options.body,undefined);if(endpoint)assert.equal(url,`/api/dev/${endpoint}`);return new Promise((resolve,reject)=>replies.push({resolve,reject,signal:options.signal,url}));});return replies;

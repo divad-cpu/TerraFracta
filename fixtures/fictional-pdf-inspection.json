@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "kind": "private_pdf_text_inspection",
+  "scope": "native_pdf_page_text_only_unverified",
+  "document": {
+    "source_key": "fictional-pdf",
+    "item_key": "invented-report",
+    "source_version_id": "10000000-0000-4000-8000-000000000001",
+    "source_url": "https://example.org/invented.pdf",
+    "content_sha256": "7e7964673dcc1e4c1ff3ac5d44ee396d7a622f5e684c2ab533e5c707d4a07501",
+    "retrieved_at": "2026-10-17T08:59:00.000000Z",
+    "media_type": "application/pdf"
+  },
+  "observed_at": "2026-10-17T09:00:00.000000Z",
+  "original_bytes": 885,
+  "parser_identity": "pypdf/6.21.0:strict:plain",
+  "limits": {
+    "max_input_bytes": 65536,
+    "max_pages": 8,
+    "max_main_content_bytes": 1048576,
+    "max_page_text_bytes": 8192,
+    "max_total_text_bytes": 65536,
+    "max_output_bytes": 131072,
+    "wall_seconds": 3,
+    "cpu_seconds": 2,
+    "address_space_bytes": 268435456,
+    "core_bytes": 0,
+    "file_bytes": 0
+  },
+  "state": "inspected",
+  "reason_code": null,
+  "page_count": 2,
+  "pages": [
+    {
+      "page_number": 1,
+      "state": "text_extracted",
+      "text": "Invented native paragraph.",
+      "text_sha256": "95e895d5f6ed61e42907fa2f3df6d1e9edd41fd0a5011c6286a87dc4b000c293",
+      "reason_code": null
+    },
+    {
+      "page_number": 2,
+      "state": "no_native_text",
+      "text": null,
+      "text_sha256": null,
+      "reason_code": null
+    }
+  ]
+}

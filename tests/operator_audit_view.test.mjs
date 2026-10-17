@@ -93,7 +93,9 @@ test("held history preserves only validated caller selection and fresh restart c
   }
   assert.ok(!render({ kind: "invalid_scope" }, selection).includes(uuid(1)));
   const ok = render({ kind: "ok", report: checked(sample()) }, { runId: uuid(9), issueId: uuid(10), cursor: null });
-  assert.ok(ok.includes(`value="${uuid(1)}"`)); assert.ok(!ok.includes(`value="${uuid(9)}"`));
+  assert.ok(ok.includes(`value="${uuid(9)}"`)); assert.ok(ok.includes(`value="${uuid(10)}"`));
+  assert.ok(!ok.includes(`value="${uuid(1)}"`));
+  assert.ok(!ok.includes("Stored publication history") && !ok.includes("Query observed at (UTC)"));
 });
 
 test("five recorded check outcomes and four registration states retain their separate meanings", () => {

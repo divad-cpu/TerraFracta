@@ -21,14 +21,14 @@ function nodes(v) { if (Array.isArray(v))
     return []; return [v, ...nodes(v.props?.children)]; }
 function harness(file, component, props) {
     const path = new URL(`../src/${file}.tsx`, import.meta.url), native = createRequire(path), exports = {}, cells = [];
-    let cursor = 0, effect, cleanup;
+    let cursor = 0, effect, cleanup, layout, layoutCleanup;
     const compiled = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     const hooks = { useState(x) { const i = cursor++; if (!(i in cells))
             cells[i] = x; return [cells[i], v => { cells[i] = v; }]; }, useRef(x) { const i = cursor++; if (!(i in cells))
-            cells[i] = { current: x }; return cells[i]; }, useEffect(f) { effect = f; } };
+            cells[i] = { current: x }; return cells[i]; }, useEffect(f) { effect = f; }, useLayoutEffect(f) { layout = f; } };
     new Function("require", "exports", compiled)(name => name === "react" ? hooks : name === "./client-error-diagnostics.ts" ? { observeClientError() { assert.fail("Observation byte refusal emitted a diagnostic"); } } : native(name), exports);
     const render = () => { cursor = 0; return exports[component](props); };
-    return { markup: () => renderToStaticMarkup(render()), mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); }, buttons() { return nodes(render()).filter(n => n.type === "button").map(n => n.props); } };
+    return { markup: () => renderToStaticMarkup(render()), mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); }, buttons() { return nodes(render()).filter(n => n.type === "button").map(n => n.props); } };
 }
 for (const [label, file, component, endpoint, props, value, visible] of variants) {
     for (const kind of ["oversized", "overdeclared", "refusal", "healthy"])

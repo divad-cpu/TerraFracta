@@ -14,16 +14,17 @@ function nodes(value) {
   return [value, ...nodes(value.props?.children)];
 }
 function harness(initial) {
-  let supervised = initial, cursor = 0, effect, cleanup;
+  let supervised = initial, cursor = 0, effect, cleanup, layout, layoutCleanup;
   const cells = [], exports = {};
   const hooks = {
     useState(value) { const i = cursor++; if (!(i in cells)) cells[i] = value; return [cells[i], next => { cells[i] = next; }]; },
     useRef(value) { const i = cursor++; if (!(i in cells)) cells[i] = { current: value }; return cells[i]; },
     useEffect(value) { effect = value; },
+    useLayoutEffect(value) { layout = value; },
   };
   new Function("require", "exports", compiled)(name => name === "react" ? hooks : native(name), exports);
   const render = () => { cursor = 0; return exports.CorrectionReviewOperationView({ supervised }); };
-  return { mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); },
+  return { mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); },
     switchMode(value) { supervised = value; render(); cleanup?.(); cleanup = effect(); },
     markup: () => renderToStaticMarkup(render()), button: () => nodes(render()).find(value => value.type === "button").props };
 }

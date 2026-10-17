@@ -1,4 +1,4 @@
-import { canonicalReadingGuideReturn, readingGuideHref } from "./current-reading-guide.ts";
+import { canonicalReadingGuideReturn, canonicalReadingGuideAnchor, readingGuideHref } from "./current-reading-guide.ts";
 import { statementLabels, evidenceLabels } from "./issue-display-labels.ts";
 import { searchText } from "./search-text.ts";
 
@@ -19,6 +19,9 @@ export const glossaryTerms = [
   { slug: "funding", category: "statements", label: statementLabels.funding,
     explanation: "Money announced, allocated, disbursed or spent. Keep the financial year, currency and whether amounts are cumulative visible. A budget allocation does not establish expenditure.",
     question: "Was the amount promised, allocated, transferred or actually spent?" },
+  { slug: "responsibility", category: "statements", label: "Responsibility",
+    explanation: "A sourced institution, level of government and period for a documented role. Introduction, amendment, funding and delivery can involve different authorities. A change of government does not assign earlier measures to the current government. A source publisher or an attributed finding's author is not necessarily the authority responsible for the action.",
+    question: "Which institution is documented for which role and period, and what exact reference establishes it?" },
   { slug: "delivery", category: "statements", label: statementLabels.delivery,
     explanation: "Evidence of what was provided or implemented, for whom and when. Delivery may be recorded without establishing a change in the underlying problem.",
     question: "What was delivered, to whom, and what evidence checks that delivery?" },
@@ -55,6 +58,12 @@ export const glossaryTerms = [
   { slug: "publication-revision", category: "dates", label: "Publication revision",
     explanation: "A version of the dossier. A revision number identifies a version; by itself it does not explain what changed or establish that an earlier publication remains current.",
     question: "What changed, and am I reading the current eligible publication?" },
+  { slug: "affected-population", category: "interpretation", label: "Affected population",
+    explanation: "The people, households or other units covered by a problem or observation, with their place, period and inclusion rules. A survey's respondents or a measure's denominator do not automatically describe the whole country's population. Keep unknown coverage explicit.",
+    question: "Who is included or excluded, and what is the denominator of the measure?" },
+  { slug: "issue-selection", category: "interpretation", label: "Issue selection rationale",
+    explanation: "The documented reason for including an issue, considering its scope, severity, development and local importance. This is not a ranking of countries or authorities. Government announcements alone are insufficient: inspect independent evidence or a disclosed gap.",
+    question: "Why was this issue included, and which evidence supports that choice?" },
   { slug: "observed-outcome", category: "interpretation", label: "Observed outcome",
     explanation: "A change in an indicator over a stated interval. Other events, measurement changes and population differences can affect it; the change alone does not identify a policy's causal effect.",
     question: "Are these observations comparable, and what could explain the change?" },
@@ -73,23 +82,30 @@ export const glossaryHref = (slug?: GlossaryTermSlug) => `/methodology/glossary$
 
 // Only authored definitions can supply the fragment. The return remains a
 // separately checked same-edition navigation selector, never a stored result.
-export function glossaryDefinitionHref(slug: unknown, returnTo?: unknown): string {
-  const guide = readingGuideHref(returnTo);
+export function glossaryDefinitionHref(slug: unknown, returnTo?: unknown, returnAnchor?: unknown): string {
+  const guide = readingGuideHref(returnTo, returnAnchor);
   return typeof slug === "string" && glossaryTerms.some(term => term.slug === slug) ? `${guide}#${slug}` : guide;
 }
 
 
 export function findGlossaryTerms(input: unknown, rethrow?: (error: unknown) => void) {
   let returnTo: string | null = null;
-  const invalid = () => ({ kind: "invalid" as const, query: "", category: "" as GlossaryCategory | "", terms: [] as typeof glossaryTerms[number][], ...(returnTo ? { returnTo } : {}) });
+  let returnAnchor: string | null = null;
+  const invalid = () => ({ kind: "invalid" as const, query: "", category: "" as GlossaryCategory | "", terms: [] as typeof glossaryTerms[number][], ...(returnTo ? { returnTo, ...(returnAnchor ? { returnAnchor } : {}) } : {}) });
   try {
     if (!input || typeof input !== "object" || Array.isArray(input)) return invalid();
     const values = input as Record<string, unknown>, keys = Object.keys(values);
-    if (keys.some(key => !["q", "category", "returnTo"].includes(key))) return invalid();
+    if (keys.some(key => !["q", "category", "returnTo", "returnAnchor"].includes(key))) return invalid();
     const returnValue = keys.includes("returnTo") ? values.returnTo : undefined;
     if (returnValue !== undefined) {
       returnTo = canonicalReadingGuideReturn(returnValue);
       if (returnTo === null) return invalid();
+    }
+    const anchorValue = keys.includes("returnAnchor") ? values.returnAnchor : undefined;
+    if (anchorValue !== undefined) {
+      if (!returnTo) return invalid();
+      returnAnchor = canonicalReadingGuideAnchor(anchorValue);
+      if (!returnAnchor) return invalid();
     }
     // Admit own enumerable selectors before observing each value once. Hidden
     // or inherited fields do not become a search or a category selection.
@@ -101,6 +117,6 @@ export function findGlossaryTerms(input: unknown, rethrow?: (error: unknown) => 
     const words = search.query.toLocaleLowerCase("en").split(/\s+/u).filter(Boolean);
     const terms = glossaryTerms.filter(term => (!category || term.category === category) && words.every(word =>
       [term.label, term.explanation, term.question].some(text => text.normalize("NFKC").toLocaleLowerCase("en").includes(word))));
-    return { kind: "valid" as const, query: search.query, category: category as GlossaryCategory | "", terms, ...(returnTo ? { returnTo } : {}) };
+    return { kind: "valid" as const, query: search.query, category: category as GlossaryCategory | "", terms, ...(returnTo ? { returnTo, ...(returnAnchor ? { returnAnchor } : {}) } : {}) };
   } catch (error) { rethrow?.(error); return invalid(); }
 }

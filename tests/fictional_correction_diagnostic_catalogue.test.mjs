@@ -16,11 +16,11 @@ const decode = input => readDiagnosticExport(new TextEncoder().encode(JSON.strin
 const event = (code = codes[0], n = 1) => makeDiagnosticEvent(code, id(n), fixed);
 
 test("genuine prechange v7 and exact historical v1-v6 preserve bytes events dates counts and generic attribution", () => {
-  assert.equal(Object.keys(diagnosticCodesV7).length, 25); assert.equal(Object.keys(diagnosticCodes).length, 33);
+  assert.equal(Object.keys(diagnosticCodesV7).length, 25); assert.equal(Object.keys(diagnosticCodes).length, 34);
   for (let version = 1; version <= 7; version++) {
     const path = new URL(`../fixtures/diagnostics/report-v${version}.sample.json`, import.meta.url);
     const raw = readFileSync(path), old = JSON.parse(raw), current = decode(old);
-    assert.equal(current.schemaVersion, 8); assert.equal(current.exportedAt, old.exportedAt);
+    assert.equal(current.schemaVersion, 9); assert.equal(current.exportedAt, old.exportedAt);
     assert.deepEqual(current.events, old.events);
     for (const [code, count] of Object.entries(old.counts)) assert.equal(current.counts[code], count);
     for (const code of codes) assert.equal(current.counts[code], 0);
@@ -51,7 +51,7 @@ test("v8 checks exact catalogue counts uncertainty privacy and all eight five-fi
   }
   const missing = structuredClone(report); delete missing.counts[codes[0]];
   const label = structuredClone(report); label.locations[codes[0]].location = "PRIVATE_LOCATION";
-  for (const bad of [missing, label, { ...report, schemaVersion: 7 }, { ...report, schemaVersion: 9 },
+  for (const bad of [missing, label, { ...report, schemaVersion: 7 }, { ...report, schemaVersion: 10 },
     { ...report, extra: "PRIVATE_BODY" }, { ...report, counts: { ...report.counts, [codes[0]]: 0 } }])
     for (const parse of [decode, parseDiagnosticReport]) assert.throws(() => parse(bad));
   const partial = decode({ ...report, locked: true, inspectionComplete: false });

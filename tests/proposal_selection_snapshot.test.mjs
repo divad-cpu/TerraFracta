@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
@@ -63,8 +64,9 @@ test('matching plain or absent selectors preserve exact checked comparison marku
   const report = proposalReport(), original = JSON.stringify(report);
   const unselected = render({ kind: 'ok', report }), selected = render({ kind: 'ok', report }, proposalScope());
   assert.equal(selected, unselected); assert.equal(JSON.stringify(report), original);
-  for (const phrase of ['Unverified proposal', 'material conflict', 'Unreviewed.', 'no approval, editing, collection or publication control', 'Captured (UTC)']) assert.ok(selected.includes(phrase));
-  assert.doesNotMatch(selected, /<form|<button|href="https:\/\//);
+  for (const phrase of ['Unverified proposal', 'material conflict', 'Unreviewed.', 'no approval, collection or publication control', 'Captured (UTC)']) assert.ok(selected.includes(phrase));
+  assertUnsentProposalControls(selected);
+  assert.doesNotMatch(selected, /href="https:\/\//);
 });
 
 test('all held outcomes and corrupted reports retain only the captured caller selection', () => {

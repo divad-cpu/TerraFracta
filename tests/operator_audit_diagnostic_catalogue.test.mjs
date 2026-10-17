@@ -60,7 +60,7 @@ test("actual existing recorder persists audit identity through private store, ex
   assert.equal((await lstat(join(directory, uuid(101) + ".json"))).mode & 0o777, 0o600);
   const output = join(parent, "export.json"); await exportErrorLog(directory, output);
   const bytes = await readFile(output), exported = JSON.parse(bytes);
-  assert.equal(exported.schemaVersion, 8); assert.equal(Object.keys(exported.locations).length, 33);
+  assert.equal(exported.schemaVersion, 9); assert.equal(Object.keys(exported.locations).length, 34);
   assert.equal(exported.counts[code], 1); assert.equal((await lstat(output)).mode & 0o777, 0o600);
   const imported = readDiagnosticExport(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
   assert.deepEqual(imported, exported);
@@ -87,7 +87,7 @@ test("exact historical v1/v2/v3 catalogues normalize only in memory and retain s
   for (const [index, original] of historical().entries()) {
     assert.deepEqual(original.locations, catalogues[index]);
     const before = JSON.stringify(original), value = decode(original);
-    assert.equal(value.schemaVersion, 8); assert.equal(value.counts[code], 0);
+    assert.equal(value.schemaVersion, 9); assert.equal(value.counts[code], 0);
     for (const key of ["events", "exportedAt", "archiveState", "inspectionComplete", "locked", "filesObserved", "unreadableFiles", "capacityReached", "captureCompleteness", "buildBinding", "instructions"])
       assert.deepEqual(value[key], original[key], key);
     for (const [key, count] of Object.entries(original.counts)) assert.equal(value.counts[key], count);
@@ -122,7 +122,7 @@ test("exact version catalogues refuse later events, partial/forged/mixed labels/
   const wrongCount = structuredClone(current); wrongCount.counts[code] = 0;
   const unknownEvent = structuredClone(current); unknownEvent.events[0].code = "operator_audit_private";
   for (const bad of [missingCount, missingLocation, forgedLocation, wrongOrigin, wrongCount, unknownEvent,
-    { ...current, schemaVersion: 9 }, { ...current, privateRaw: "PRIVATE_CANARY" }])
+    { ...current, schemaVersion: 10 }, { ...current, privateRaw: "PRIVATE_CANARY" }])
     assert.throws(() => decode(bad));
 });
 

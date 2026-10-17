@@ -82,10 +82,10 @@ test('actual overview and selected issue GET form bind exact checked data and le
   const readAudit=createOperatorAuditReader(async scope=>{auditReads++;assert.deepEqual(scope,{runId:choiceId(1),issueId:choiceId(30),cursor:null});
     const value=audit();value.requested={...scope};value.run.runId=scope.runId;value.history.issueId=scope.issueId;return bytes(value);},undefined,()=>Promise.resolve());
   const h=harness('development',read,readAudit),overview=await h.render({});
-  assert.ok(overview.includes(`/editorial-preview/audit/select?runId=${choiceId(1)}`));assert.ok(!overview.includes('<select'));
+  assert.ok(overview.includes(`/editorial-preview/audit/select?runId=${choiceId(1)}`));assert.ok(!overview.includes('name="issueId"'));
   const selected=await h.render({runId:choiceId(1)});
-  const form=selected.match(/<form[^>]+>/)?.[0];assert.ok(form);assert.ok(form.includes('method="get"'));assert.ok(form.includes('action="/editorial-preview/audit"'));
-  const run=selected.match(/name="runId"[^>]*value="([^"]+)"/)[1],issue=selected.match(/<option value="([^"]+)"/)[1];
+  const form=[...selected.matchAll(/<form[^>]*>[\s\S]*?<\/form>/g)].find(m=>m[0].includes('aria-label="Open an audit for the selected run"'))?.[0];assert.ok(form);assert.ok(form.includes('method="get"'));assert.ok(form.includes('action="/editorial-preview/audit"'));
+  const run=form.match(/name="runId"[^>]*value="([^"]+)"/)[1],issue=form.match(/<option value="([^"]+)"/)[1];
   assert.equal(run,choiceId(1));assert.equal(issue,choiceId(30));assert.ok(selected.includes('housing costs'));assert.ok(selected.includes('aria-current="true"'));
   assert.ok(selected.includes('Their presence does not mean this run updated or published them'));
   const opened=await h.audit({runId:run,issueId:issue});assert.ok(opened.includes('Recorded audit snapshot'));
@@ -97,7 +97,7 @@ test('unconfigured unavailable empty absent and empty-issue states do not create
     const html=await harness('development',async()=>decision).render({});assert.ok(html.includes(text));assert.ok(!html.includes('<select'));}
   const h=harness(),empty={...choices(),runs:[]};assert.ok(h.view({kind:'ok',report:empty}).includes('No recorded runs returned'));
   const absent=choices(choiceId(99));assert.ok(h.view({kind:'ok',report:absent},choiceId(99)).includes('No matching recorded run'));
-  const noIssues=choices(choiceId(1));noIssues.issues=[];const html=h.view({kind:'ok',report:noIssues},choiceId(1));assert.ok(html.includes('No issue dossiers returned'));assert.ok(!html.includes('<select'));
+  const noIssues=choices(choiceId(1));noIssues.issues=[];const html=h.view({kind:'ok',report:noIssues},choiceId(1));assert.ok(html.includes('No issue dossiers returned'));assert.ok(!html.includes('name="issueId"'));
   assert.ok((await harness('development',async()=>{throw new Error('PRIVATE_CANARY');}).render({})).includes('Recorded choices unavailable'));
 });
 
@@ -107,7 +107,7 @@ test('direct presenter withholds extended or mismatched data; bounded lists disc
   assert.ok(h.view({kind:'ok',report:choices(choiceId(1))},choiceId(2)).includes('Recorded choices unavailable'));
   const value=choices(choiceId(1));value.runs=Array.from({length:20},(_,i)=>({...value.runs[0],runId:choiceId(20-i)}));value.selectedRun={...value.runs.at(-1)};value.moreRuns=true;value.nextCursor={createdAt:value.runs.at(-1).createdAt,runId:value.runs.at(-1).runId};
   value.issues=Array.from({length:50},(_,i)=>({issueId:choiceId(100+i),issueKey:`issue-${String(i).padStart(2,'0')}`}));value.moreIssues=true;
-  const html=h.view({kind:'ok',report:value},choiceId(1));assert.ok(html.includes('More older recorded runs are available'));assert.ok(html.includes('Only the first 50 issue keys'));assert.equal((html.match(/<option /g)||[]).length,50);
+  const html=h.view({kind:'ok',report:value},choiceId(1));assert.ok(html.includes('More older recorded runs are available'));assert.ok(html.includes('Only the first 50 issue keys'));const issueSelect=html.match(/<select[^>]*name="issueId"[^>]*>[\s\S]*?<\/select>/)[0];assert.equal((issueSelect.match(/<option /g)||[]).length,50);
 });
 
 function links(html) {

@@ -16,7 +16,7 @@ test('query and category first admitted values each select the guide once withou
 
 test('inherited and nonenumerable search values stay absent and unobserved in parser and actual guide',async()=>{
  for(const hidden of [false,true])for(const actualPage of [false,true]){let observations=0;const base={get q(){observations++;throw Error('HIDDEN_PRIVATE')},get category(){observations++;throw Error('HIDDEN_PRIVATE')}};const query=Object.create(base);if(hidden){Object.defineProperty(query,'q',{get(){observations++;throw Error('HIDDEN_PRIVATE')}});Object.defineProperty(query,'category',{get(){observations++;throw Error('HIDDEN_PRIVATE')}})}
- if(actualPage){const html=await page(query);assert.match(html,/19 terms match/);assert.doesNotMatch(html,/HIDDEN_PRIVATE/)}else assert.deepEqual(slugs(findGlossaryTerms(query)),glossaryTerms.map(term=>term.slug));assert.equal(observations,0)}
+ if(actualPage){const html=await page(query);assert.match(html,/22 terms match/);assert.doesNotMatch(html,/HIDDEN_PRIVATE/)}else assert.deepEqual(slugs(findGlossaryTerms(query)),glossaryTerms.map(term=>term.slug));assert.equal(observations,0)}
 });
 
 test('own field getter faults become detail-free invalid recovery without replacing framework rendering',async()=>{

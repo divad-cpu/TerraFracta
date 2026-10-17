@@ -30,12 +30,12 @@ function status(reason) {
 }
 function nodes(value) { if(Array.isArray(value))return value.flatMap(nodes);if(!value||typeof value!=='object')return [];return [value,...nodes(value.props?.children)]; }
 function harness(kind) {
-  let cursor=0,effect,cleanup;const cells=[];
-  const hooks={useState(initial){const i=cursor++;cells[i]??=initial;return [cells[i],v=>{cells[i]=typeof v==='function'?v(cells[i]):v;}];},useRef(initial){const i=cursor++;cells[i]??={current:initial};return cells[i];},useEffect(fn){effect=fn;}};
+  let cursor=0,effect,cleanup,layout,layoutCleanup;const cells=[];
+  const hooks={useState(initial){const i=cursor++;cells[i]??=initial;return [cells[i],v=>{cells[i]=typeof v==='function'?v(cells[i]):v;}];},useRef(initial){const i=cursor++;cells[i]??={current:initial};return cells[i];},useEffect(fn){effect=fn;},useLayoutEffect(fn){layout=fn;}};
   const name=kind==='saved'?'weekly-rehearsal-report-view.tsx':'weekly-rehearsal-status-view.tsx';
   const component=loadTsx(new URL('../src/'+name,import.meta.url),name=>name==='react'?hooks:undefined)[kind==='saved'?'WeeklyRehearsalReportView':'WeeklyRehearsalStatusView'];
   const render=()=>{cursor=0;return component();};
-  return {mount(){render();cleanup=effect();},unmount(){cleanup?.();},markup:()=>renderToStaticMarkup(render()),
+  return {mount(){render();layoutCleanup=layout?.();cleanup=effect();},unmount(){layoutCleanup?.();cleanup?.();},markup:()=>renderToStaticMarkup(render()),
     choose(file){const input={files:[file],value:'PRIVATE_FILENAME'};nodes(render()).find(n=>n.type==='input').props.onChange({currentTarget:input});assert.equal(input.value,'');},
     clear(){nodes(render()).find(n=>n.type==='button'&&n.props.children==='Clear local report').props.onClick();},
     refresh(){nodes(render()).find(n=>n.type==='button'&&n.props.children==='Check weekly rehearsal history').props.onClick();},};

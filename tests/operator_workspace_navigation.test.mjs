@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -60,7 +61,7 @@ test("actual checked held and proposal presenters keep exact decision navigation
   assert.ok(html.includes(`issueId=${p.target.issueId}#audit-history-heading`));
   for (const text of ["Unverified proposal", "Recorded current publication", "Proposed content", "Translation", "Conflicting evidence"])
     assert.ok(html.includes(text), text);
-  assert.ok(!html.includes("<button") && !html.includes('href="https:'));
+  assertUnsentProposalControls(html); assert.ok(!html.includes('href="https:'));
 });
 test("withheld comparison navigation never borrows an unchecked target or cross-run report", () => {
   const report = proposalReport(), selection = { ...proposalScope(), runId: id(55) };

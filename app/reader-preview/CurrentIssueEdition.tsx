@@ -1,24 +1,38 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { requestCurrentIssueStatus, type CurrentIssueIdentity, type CurrentIssueVerdict } from "../../src/current-issue-status.ts";
 import { startCurrentIssueWatch } from "../../src/current-issue-watch.ts";
 
+const physicalReads = new Map<string, { current: Promise<void> | null }>();
+function physicalStatusSlot(expected: CurrentIssueIdentity) {
+  const key = `${expected.jurisdictionSlug}/${expected.issueSlug}`;
+  let slot = physicalReads.get(key);
+  if (!slot) { slot = { current: null }; physicalReads.set(key, slot); }
+  return slot;
+}
+
 export function CurrentIssueEdition({ expected, latestHref, children }: { expected: CurrentIssueIdentity; latestHref: string; children: ReactNode }) {
   const [status, setStatus] = useState<CurrentIssueVerdict>({ kind: "current" });
+  const stopWatch = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => () => { stopWatch.current?.(); }, [expected.jurisdictionSlug, expected.issueSlug, expected.issueId, expected.publicationId, expected.revision]);
   useEffect(() => {
     let active = true;
     const changed = (value: CurrentIssueVerdict) => { if (active) setStatus(value); };
     const watch = startCurrentIssueWatch(expected, changed, requestCurrentIssueStatus,
-      { visible: () => document.visibilityState !== "hidden", interval: setInterval, clearInterval, timeout: setTimeout, clearTimeout });
+      { visible: () => document.visibilityState !== "hidden", interval: setInterval, clearInterval, timeout: setTimeout, clearTimeout, physical: physicalStatusSlot(expected) });
     const visible = () => { if (active) void watch.check(); };
     const retire = () => {
       active = false;
       try { watch.stop(); } catch { /* Visibility still has its own retirement. */ }
       try { document.removeEventListener("visibilitychange", visible); } catch { /* Retained events are inactive. */ }
     };
+    stopWatch.current = retire;
     try { document.addEventListener("visibilitychange", visible); }
     catch { retire(); setStatus({ kind: "unavailable" }); }
-    return retire;
+    return () => {
+      retire();
+      if (stopWatch.current === retire) stopWatch.current = null;
+    };
   }, [expected.jurisdictionSlug, expected.issueSlug, expected.issueId, expected.publicationId, expected.revision]);
   if (status.kind === "current") return children;
   return <section className="content-page current-issue-held" role="status" aria-live="polite">

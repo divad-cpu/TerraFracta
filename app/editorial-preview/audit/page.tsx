@@ -15,6 +15,6 @@ export default async function OperatorAuditPage(props: { searchParams: Promise<R
   try { selection = auditBrowseSelection(await props.searchParams, unstable_rethrow); }
   catch (error) { unstable_rethrow(error); selection = null; }
   if (selection === null) return <OperatorAuditView decision={{ kind: "invalid_scope" }} />;
-  try { return <OperatorAuditView decision={await readOperatorAudit(selection.scope)} selection={selection.scope} runReturn={selection.runReturn} outcome={selection.outcome} publicationKind={selection.publicationKind} />; }
-  catch { return <OperatorAuditView decision={{ kind: "unavailable" }} selection={selection.scope} runReturn={selection.runReturn} outcome={selection.outcome} publicationKind={selection.publicationKind} />; }
+  try { return <OperatorAuditView decision={await readOperatorAudit(selection.scope)} selection={selection.scope} runReturn={selection.runReturn} outcome={selection.outcome} publicationKind={selection.publicationKind} sourceQuery={selection.sourceQuery} registrationState={selection.registrationState} />; }
+  catch { return <OperatorAuditView decision={{ kind: "unavailable" }} selection={selection.scope} runReturn={selection.runReturn} outcome={selection.outcome} publicationKind={selection.publicationKind} sourceQuery={selection.sourceQuery} registrationState={selection.registrationState} />; }
 }

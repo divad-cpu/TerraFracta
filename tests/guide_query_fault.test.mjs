@@ -17,7 +17,7 @@ test('throwing then getter and rejected thenable are observed once and reveal no
 });
 
 test('successful async query still captures admitted return once and preserves original guide category',async()=>{
- for(const [i,Page]of Pages.entries()){let reads=0;const input={get returnTo(){reads++;return reads===1?back:'https://PRIVATE.invalid'}};const s=await html(Page,Promise.resolve(input));assert.equal(reads,1);assert.ok(s.includes('href="'+back+'"'));assert.doesNotMatch(s,/PRIVATE/);if(i===0)assert.match(s,/19 terms match/);if(i===2)assert.match(s,/&amp;category=evidence/)}
+ for(const [i,Page]of Pages.entries()){let reads=0;const input={get returnTo(){reads++;return reads===1?back:'https://PRIVATE.invalid'}};const s=await html(Page,Promise.resolve(input));assert.equal(reads,1);assert.ok(s.includes('href="'+back+'"'));assert.doesNotMatch(s,/PRIVATE/);if(i===0)assert.match(s,/22 terms match/);if(i===2)assert.match(s,/&amp;category=evidence/)}
 });
 
 test('resolved invalid selectors keep established search or context refusal without triggering a retry',async()=>{
@@ -28,6 +28,6 @@ test('resolved invalid selectors keep established search or context refusal with
 test('successful hidden then property is never assimilated a second time during helper return',async()=>{
  for(const [i,Page]of Pages.entries())for(const kind of ['throw','reject']){
   let observations=0;const values={returnTo:back};Object.defineProperty(values,'then',{get(){observations++;if(observations===1)return undefined;if(kind==='throw')throw Error('PRIVATE_CANARY');return(resolve,reject)=>reject(Error('PRIVATE_CANARY'))}});
-  const s=await html(Page,values);assert.equal(observations,1);assert.ok(s.includes('href="'+back+'"'));assert.doesNotMatch(s,/PRIVATE_CANARY/);if(i===0)assert.match(s,/19 terms match/);
+  const s=await html(Page,values);assert.equal(observations,1);assert.ok(s.includes('href="'+back+'"'));assert.doesNotMatch(s,/PRIVATE_CANARY/);if(i===0)assert.match(s,/22 terms match/);
  }
 });

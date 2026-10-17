@@ -6,11 +6,13 @@ not a general statistical writer, an accepted snapshot or an activation plan.
 
 from __future__ import annotations
 
+from dataclasses import fields
 from decimal import Decimal
 from re import fullmatch
 from uuid import UUID, uuid5
 
 from workers.offline_update_run import OfflineRunReport
+from workers.automatic_publication_gate import CandidateChecks
 from workers.public_source_url import public_https_source_url
 
 
@@ -31,8 +33,10 @@ def build_fictional_publication_draft(report: OfflineRunReport) -> dict[str, obj
         # into a page just because the number happens to fit the template.
         if (
             decision.disposition != "shadow_only"
+            or decision.candidate_id != item.item_key
             or decision.reason_codes != ("shadow_mode",)
             or len(decision.check_trace) != 9
+            or dict(decision.check_trace) != {field.name: True for field in fields(CandidateChecks)}
             or any(passed is not True for _, passed in decision.check_trace)
             or decision.policy_id != "fictional-policy-v1"
             or decision.qualification_id != "fictional-qualification-v1"
@@ -61,7 +65,11 @@ def build_fictional_publication_draft(report: OfflineRunReport) -> dict[str, obj
             or observation.value.as_tuple().exponent < -1
         ):
             raise ValueError("Fictional draft differs from its checked observation")
-        value = format(observation.value, "f")
+        # The existing fictional display accepts nonnegative percentages. A
+        # signed Decimal zero has the same value; remove only its sign, without
+        # changing the parsed observation, precision or semantic fingerprint.
+        display_value = observation.value.copy_abs() if observation.value.is_zero() else observation.value
+        value = format(display_value, "f")
         claim_id = str(uuid5(NAMESPACE, f"fictional-source:fictional-share:{observation.period}"))
         issue_id = str(uuid5(NAMESPACE, "fictional-country:fictional-share"))
         publication_id = str(uuid5(NAMESPACE, f"{issue_id}:{decision.content_sha256}:{observation.period}"))

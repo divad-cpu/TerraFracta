@@ -36,9 +36,11 @@ export function interpretCurrentIssueStatus(input: unknown, expected: CurrentIss
   if (!parsed.success) return { kind: "unavailable" };
   if (parsed.data.kind !== "current") return { kind: parsed.data.kind };
   const value = parsed.data;
-  if (value.jurisdictionSlug !== identity.jurisdictionSlug || value.issueSlug !== identity.issueSlug || value.issueId !== identity.issueId) return { kind: "unavailable" };
-  if (value.publicationId === identity.publicationId && value.revision === identity.revision) return { kind: "current" };
-  return value.revision > identity.revision && value.publicationId !== identity.publicationId ? { kind: "changed" } : { kind: "unavailable" };
+  if (value.jurisdictionSlug !== identity.jurisdictionSlug || value.issueSlug !== identity.issueSlug || value.issueId.toLowerCase() !== identity.issueId.toLowerCase()) return { kind: "unavailable" };
+  // Compare parsed UUID values while preserving every captured field's spelling.
+  const samePublication = value.publicationId.toLowerCase() === identity.publicationId.toLowerCase();
+  if (samePublication && value.revision === identity.revision) return { kind: "current" };
+  return value.revision > identity.revision && !samePublication ? { kind: "changed" } : { kind: "unavailable" };
 }
 
 export async function requestCurrentIssueStatus(expected: CurrentIssueIdentity, signal: AbortSignal, send: typeof fetch = fetch): Promise<unknown> {

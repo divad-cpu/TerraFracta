@@ -43,6 +43,27 @@ export type CurrentCatalogueResult =
   | { kind: "absent" | "unavailable" | "changed"; selection: CurrentCatalogueSelection }
   | { kind: "available"; selection: CurrentCatalogueSelection; issue: PublicIssueProjection; matches: boolean };
 
+function catalogueSearchFields(issue: PublicIssueProjection, selection: CurrentCatalogueSelection, entry: CurrentVisitorEntry) {
+  const country = { key: "country", label: "Country names", values: entry.countryAliases };
+  return selection.view === "countries" ? [country] : [country,
+    { key: "topic", label: "Topic", values: [entry.topicLabel] },
+    { key: "title", label: "Dossier title", values: [issue.title] },
+    { key: "summary", label: "Summary", values: [issue.summary] }];
+}
+
+// Explain literal locations in already checked discovery fields. This never
+// decides eligibility or adds statement/source fields to directory search.
+export function currentCatalogueSearchBasis(issue: PublicIssueProjection, selection: CurrentCatalogueSelection,
+  entry: CurrentVisitorEntry = currentVisitorEntry) {
+  const search = searchText(selection.query);
+  if (search.kind !== "valid" || !search.query) return { fields: [], countryNames: [] };
+  const words = search.query.toLocaleLowerCase("en").split(/\s+/u).filter(Boolean);
+  const matches = (value: string) => words.some(word => value.normalize("NFKC").toLocaleLowerCase("en").includes(word));
+  const fields = catalogueSearchFields(issue, selection, entry).filter(field => field.values.some(matches)).map(field => field.label);
+  const countryNames = [...new Set(entry.countryAliases.filter(value => value !== entry.country && matches(value)))];
+  return { fields, countryNames };
+}
+
 // The supplied decision must come from the checked current reader. Rechecking
 // its closed display shape here grants no independent eligibility or rights.
 export function currentCatalogueResult(decision: PublicReadResponseDecision, selection: CurrentCatalogueSelection,
@@ -55,8 +76,7 @@ export function currentCatalogueResult(decision: PublicReadResponseDecision, sel
   const issue = parsed.data;
   if (selection.publicationId !== null && !samePresentationEdition(selection.publicationId, issue.publicationId)) return { kind: "changed", selection };
   const words = selection.query.toLocaleLowerCase("en").split(/\s+/u).filter(Boolean);
-  const fields = selection.view === "countries" ? entry.countryAliases.join(" ") :
-    `${entry.countryAliases.join(" ")} ${entry.topicLabel} ${issue.title} ${issue.summary}`;
+  const fields = catalogueSearchFields(issue, selection, entry).flatMap(field => field.values).join(" ");
   const searchable = fields.normalize("NFKC").toLocaleLowerCase("en");
   return { kind: "available", selection, issue, matches: words.every(word => searchable.includes(word)) };
 }
@@ -66,4 +86,37 @@ export function currentCatalogueHref(view: CurrentCatalogueView, publicationId: 
   if (publicationId !== null) query.set("edition", publicationId);
   if (country) query.set("country", country);
   return `/reader-preview/catalogue?${query}`;
+}
+
+export type CurrentCatalogueFilterAction = Readonly<{ field: "q" | "country" | "topic"; label: string; value: string; href: string }>;
+
+// Removing a presentation filter makes a new checked directory visit. The
+// current publication and other selections stay bound; no coverage is granted.
+export function currentCatalogueFilterActions(issue: PublicIssueProjection, selection: CurrentCatalogueSelection,
+  entry: CurrentVisitorEntry = currentVisitorEntry): readonly CurrentCatalogueFilterAction[] {
+  try {
+    const keys = Object.keys(selection), required = ["view", "query", "country", "topic", "publicationId"];
+    if (required.some(key => !keys.includes(key)) || keys.some(key => !required.includes(key))) return [];
+    const values = captureOwnEnumerableSelectors(selection, keys);
+    if (values === null) return [];
+    const { view, query, country, topic, publicationId } = values;
+    if (typeof query !== "string" || typeof country !== "string" || typeof topic !== "string" ||
+        (publicationId !== null && typeof publicationId !== "string") ||
+        (publicationId !== null && !samePresentationEdition(publicationId, issue.publicationId)) ||
+        issue.jurisdictionSlug !== entry.jurisdictionSlug || issue.issueSlug !== entry.issueSlug) return [];
+    const checked = currentCatalogueSelection({ view, q: query, country, topic, edition: issue.publicationId }, entry);
+    if (!checked) return [];
+    const active = [
+      ...(checked.query ? [{ field: "q" as const, label: "Search words", value: checked.query }] : []),
+      ...(checked.country ? [{ field: "country" as const, label: "Country", value: entry.country }] : []),
+      ...(checked.topic ? [{ field: "topic" as const, label: "Topic", value: entry.topicLabel }] : []),
+    ];
+    return Object.freeze(active.map(action => {
+      const params = new URLSearchParams({ view: checked.view, edition: issue.publicationId });
+      if (checked.query && action.field !== "q") params.set("q", checked.query);
+      if (checked.country && action.field !== "country") params.set("country", checked.country);
+      if (checked.topic && action.field !== "topic") params.set("topic", checked.topic);
+      return Object.freeze({ ...action, href: `/reader-preview/catalogue?${params}` });
+    }));
+  } catch { return []; }
 }

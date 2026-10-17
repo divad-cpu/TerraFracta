@@ -64,9 +64,14 @@ export const fictionalCorrectionDiagnosticCodes = {
   fictional_correction_display: { origin: "browser", location: "fictional corrections / update exercise view" },
 } as const;
 export type FictionalCorrectionDiagnosticCode = keyof typeof fictionalCorrectionDiagnosticCodes;
-export const diagnosticCodes = {
+// Historical report-v8 catalogue. Preserve all original locations and codes.
+export const diagnosticCodesV8 = {
   ...diagnosticCodesV7,
   ...fictionalCorrectionDiagnosticCodes,
+} as const;
+export const diagnosticCodes = {
+  ...diagnosticCodesV8,
+  scope_draft_export: { origin: "browser", location: "editorial preview / download scope preparation" },
 } as const;
 export type DiagnosticCode = keyof typeof diagnosticCodes;
 export const diagnosticIntentSchema = z.object({

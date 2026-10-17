@@ -1,3 +1,4 @@
+import { readerWrapperLifetime } from "./helpers/reader_wrapper_lifetime.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { requestCurrentIssueStatus, currentIssueIdentity } from "../src/current-issue-status.ts";
@@ -54,7 +55,7 @@ test("cancelled native status stream releases promptly without awaiting underlyi
 
 for (const phase of ["oversize", "pending-body"]) test(`actual connected wrapper terminally withholds ${phase} metadata and cancels the owned native stream`, async t => {
   const snapshot = { ...connectedInput(), generation: 1 }, expected = connectedStatusIdentity(snapshot);
-  const listeners = new Map(), intervals = new Map(), timers = new Map(); let status = { kind: "current" }, effect, owned, cancels = 0, reads = 0, token = 0;
+  const listeners = new Map(), intervals = new Map(), timers = new Map(); let status = { kind: "current" }, effect, owned, cancels = 0, reads = 0, token = 0; const lifetime = readerWrapperLifetime(callback => { effect = callback; });
   const originalDocument = globalThis.document;
   globalThis.document = { visibilityState: "visible", addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
   const body = new ReadableStream({ start(controller) { if (phase === "oversize") controller.enqueue(new TextEncoder().encode(JSON.stringify(connectedStatusPayload({ kind: "snapshot", snapshot })) + " ".repeat(2048))); }, cancel() { cancels++; } });
@@ -62,7 +63,7 @@ for (const phase of ["oversize", "pending-body"]) test(`actual connected wrapper
   const c = { visible: () => true, now: () => 0, interval: fn => { intervals.set(++token, fn); return token; }, clearInterval: id => intervals.delete(id),
     timeout: fn => { timers.set(++token, fn); return token; }, clearTimeout: id => timers.delete(id) };
   const Component = loadTsx(new URL("../app/connected-preview/CurrentConnectedEdition.tsx", import.meta.url), name => name === "react"
-    ? { useState: () => [status, next => { status = next; }], useEffect: callback => { effect = callback; } }
+    ? { useState: () => [status, next => { status = next; }], ...lifetime }
     : name.endsWith("connected-reader-watch") ? { startConnectedReaderWatch: (identity, changed, verify) => startConnectedReaderWatch(identity, changed, verify, c) } : undefined).CurrentConnectedEdition;
   let cleanup;
   try {

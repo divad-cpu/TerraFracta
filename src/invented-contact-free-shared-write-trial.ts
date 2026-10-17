@@ -97,7 +97,12 @@ export function createInventedContactFreeSharedWriteTrial(ports: InventedSharedW
     let stopped = false, attached = false, timer: ReturnType<typeof setTimeout> | undefined;
     const start = snapshot(), nativeStart = nativeNow();
     operation.observer = true; operation.physical++;
-    function interrupt() { if (stopped) return; stopped = true; operation.phase = "unknown"; controller.abort(); deliver(held()); }
+    function interrupt() {
+      if (stopped) return;
+      stopped = true; operation.phase = "unknown";
+      try { controller.abort(); } catch { loseContext(); }
+      deliver(held());
+    }
     function live() {
       try {
         const aborted = request?.signal.aborted ?? false, at = snapshot();
@@ -109,8 +114,8 @@ export function createInventedContactFreeSharedWriteTrial(ports: InventedSharedW
     }
     function cleanup() {
       operation.observer = false;
-      try { if (timer !== undefined) clearTimeout(timer); if (attached) request!.signal.removeEventListener("abort", interrupt); }
-      catch { loseContext(); }
+      try { if (timer !== undefined) clearTimeout(timer); } catch { loseContext(); }
+      try { if (attached) request!.signal.removeEventListener("abort", interrupt); } catch { loseContext(); }
     }
     void (async () => {
       try {

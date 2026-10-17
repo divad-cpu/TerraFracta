@@ -16,17 +16,17 @@ function nodes(value) {
   return [value, ...nodes(value.props?.children)];
 }
 function ui(t) {
-  let cursor = 0, effect, cleanup; const cells = [];
+  let cursor = 0, effect, cleanup, layout, layoutCleanup; const cells = [];
   const hooks = {
     useState(initial) { const i = cursor++; cells[i] ??= initial; return [cells[i], value => { cells[i] = typeof value === "function" ? value(cells[i]) : value; }]; },
     useRef(initial) { const i = cursor++; cells[i] ??= { current: initial }; return cells[i]; },
-    useEffect(value) { effect = value; }, useId() { return "diagnostic-file-size"; },
+    useEffect(value) { effect = value; }, useLayoutEffect(value) { layout = value; }, useId() { return "diagnostic-file-size"; },
   };
   const Component = loadTsx(new URL("../src/diagnostic-import-view.tsx", import.meta.url), name => name === "react" ? hooks : undefined).DiagnosticImportView;
   const render = () => { cursor = 0; return Component(); };
   t.mock.method(globalThis, "fetch", () => assert.fail("Diagnostic file selection used a transport"));
-  t.after(() => cleanup?.());
-  return { mount() { render(); cleanup = effect(); }, markup: () => renderToStaticMarkup(render()),
+  t.after(() => { layoutCleanup?.(); cleanup?.(); });
+  return { mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, markup: () => renderToStaticMarkup(render()),
     choose(file) { const input = { files: [file], value: "PRIVATE_DIAGNOSTIC_FILENAME" };
       nodes(render()).find(node => node.type === "input" && node.props.type === "file").props.onChange({ currentTarget: input });
       assert.equal(input.value, ""); }, };

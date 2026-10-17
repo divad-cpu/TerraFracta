@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "kind": "private_feed_discovery_report",
+  "current": {
+    "source": {
+      "source_key": "fictional-feed",
+      "source_version_id": "10000000-0000-4000-8000-000000000002",
+      "feed_url": "https://example.org/feed.xml",
+      "content_sha256": "cc4a655fc8d89c38831e09e91875a524ed37da69ad02c3f22c9803765bd199fb",
+      "retrieved_at": "2026-10-14T12:00:00.000000Z"
+    },
+    "format": "rss20",
+    "entries": [
+      {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000002",
+        "source_content_sha256": "cc4a655fc8d89c38831e09e91875a524ed37da69ad02c3f22c9803765bd199fb",
+        "entry_id": "revised",
+        "title": "Invented revised title",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:1",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000002",
+        "source_content_sha256": "cc4a655fc8d89c38831e09e91875a524ed37da69ad02c3f22c9803765bd199fb",
+        "entry_id": "first",
+        "title": "Invented first observation",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:3",
+        "published_text": "Mon, 01 Jan 2001 00:00:00 GMT",
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      }
+    ],
+    "held": [
+      {
+        "entry_number": 2,
+        "reason_code": "entry_link_invalid_or_ambiguous",
+        "entry_id": "held"
+      }
+    ],
+    "next_url": "https://example.org/feed.xml?page=2",
+    "parser_identity": "terrafracta-feed-discovery/v1:feedparser/6.0.14",
+    "coverage": "single_feed_window"
+  },
+  "previous": {
+    "source": {
+      "source_key": "fictional-feed",
+      "source_version_id": "10000000-0000-4000-8000-000000000001",
+      "feed_url": "https://example.org/feed.xml",
+      "content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+      "retrieved_at": "2026-10-14T11:00:00.000000Z"
+    },
+    "format": "rss20",
+    "entries": [
+      {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000001",
+        "source_content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+        "entry_id": "revised",
+        "title": "Invented earlier title",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:1",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000001",
+        "source_content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+        "entry_id": "rolled-off",
+        "title": "Invented announcement",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:2",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000001",
+        "source_content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+        "entry_id": "held",
+        "title": "Invented announcement",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:3",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      }
+    ],
+    "held": [],
+    "next_url": null,
+    "parser_identity": "terrafracta-feed-discovery/v1:feedparser/6.0.14",
+    "coverage": "single_feed_window"
+  },
+  "source_bytes_changed": true,
+  "changes": [
+    {
+      "state": "metadata_revised",
+      "current": {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000002",
+        "source_content_sha256": "cc4a655fc8d89c38831e09e91875a524ed37da69ad02c3f22c9803765bd199fb",
+        "entry_id": "revised",
+        "title": "Invented revised title",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:1",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      "previous": {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000001",
+        "source_content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+        "entry_id": "revised",
+        "title": "Invented earlier title",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:1",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      }
+    },
+    {
+      "state": "first_observed",
+      "current": {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000002",
+        "source_content_sha256": "cc4a655fc8d89c38831e09e91875a524ed37da69ad02c3f22c9803765bd199fb",
+        "entry_id": "first",
+        "title": "Invented first observation",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:3",
+        "published_text": "Mon, 01 Jan 2001 00:00:00 GMT",
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      "previous": null
+    }
+  ],
+  "not_reobserved": [
+    {
+      "previous": {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000001",
+        "source_content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+        "entry_id": "rolled-off",
+        "title": "Invented announcement",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:2",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      "reason_code": "not_in_current_feed_window"
+    },
+    {
+      "previous": {
+        "source_key": "fictional-feed",
+        "source_version_id": "10000000-0000-4000-8000-000000000001",
+        "source_content_sha256": "e6dcb791f7fab9b812ed620d40df093fdcc3a21f147e4d2bb9adc67784e027e8",
+        "entry_id": "held",
+        "title": "Invented announcement",
+        "url": "https://example.org/one",
+        "locator": "feed-entry:3",
+        "published_text": null,
+        "updated_text": null,
+        "review_state": "unverified_discovery"
+      },
+      "reason_code": "held_in_current_window"
+    }
+  ],
+  "review_state": "unverified_discovery_comparison"
+}

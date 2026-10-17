@@ -57,18 +57,25 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def _plain_bounded(value: object, *, minimum: int, maximum: int) -> bool:
-    return (
+    if not (
         isinstance(value, str)
         and minimum <= len(value.strip()) <= maximum
         and value == value.strip()
         and all(ord(character) >= 32 or character in "\n\t" for character in value)
-    )
+    ):
+        return False
+    # JSON escapes can create unpaired surrogates after valid byte decoding.
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def parse_untrusted_model_proposal(raw: bytes, allowed: AllowedEvidence) -> ModelProposal:
     """Validate schema and exact source binding; support must be checked later."""
 
-    if not isinstance(raw, bytes) or not raw or len(raw) > MAX_OUTPUT_BYTES:
+    if type(raw) is not bytes or not raw or len(raw) > MAX_OUTPUT_BYTES:
         raise ModelProposalError("Model output size is invalid")
     if (
         not isinstance(allowed, AllowedEvidence)

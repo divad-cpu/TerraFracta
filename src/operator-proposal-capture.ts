@@ -24,7 +24,9 @@ export const proposalCapturePayloadSchema = z.strictObject({
 }).superRefine((value, context) => {
   const listed = new Set(value.dependencyManifest.sourceVersionIds);
   const cited = new Set(value.snapshot.claims.flatMap(claim => claim.evidence.map(e => e.sourceVersionId)));
-  if (listed.size !== value.dependencyManifest.sourceVersionIds.length ||
+  // A UUID case alias cannot be another dependency; exact cited/listed spelling
+  // and immutable capture bytes remain independently checked below.
+  if (new Set([...listed].map(id => id.toLowerCase())).size !== value.dependencyManifest.sourceVersionIds.length ||
       listed.size !== cited.size || [...cited].some(id => !listed.has(id)) ||
       new Set(value.snapshot.claims.map(c => c.id)).size !== value.snapshot.claims.length) {
     context.addIssue({ code: "custom", message: "Proposal evidence identities inconsistent" });

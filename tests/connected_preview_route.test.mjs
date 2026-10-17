@@ -7,6 +7,7 @@ import { connectedEdition } from "../src/connected-fictional-reader.ts";
 
 // Invoke the actual page function in process. Next's routing boundary and the
 // filesystem are instrumented; this does not access HTTP, browser or DOM.
+const navigation = createRequire(import.meta.url)("next/navigation");
 const sourcePath = new URL("../app/connected-preview/[view]/page.tsx", import.meta.url);
 const compiled = ts.transpileModule(readFileSync(sourcePath, "utf8"), {
   compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -15,7 +16,7 @@ function pageHarness(mode) {
   const calls = [], marker = new Error("NEXT_NOT_FOUND"), exports = {};
   const nativeRequire = createRequire(sourcePath);
   const require = (name) => {
-    if (name === "next/navigation") return { notFound: () => { throw marker; } };
+    if (name === "next/navigation") return { notFound: () => { throw marker; }, unstable_rethrow: navigation.unstable_rethrow };
     if (name.endsWith("connected-fictional-reader")) return { connectedEdition };
     if (name.endsWith("connected-preview-view")) return { connectedViews: ["overview", "issue", "sources", "search"], ConnectedPreviewView: () => null };
     if (name.endsWith("connected-fictional-store")) return { connectedFictionalStore: () => ({ current: async (edition) => { calls.push(edition); return { kind: "empty" }; } }) };

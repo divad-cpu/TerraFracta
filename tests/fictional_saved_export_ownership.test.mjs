@@ -5,17 +5,17 @@ import { loadTsx } from "./helpers/tsx_loader.mjs";
 
 const nodes = x => Array.isArray(x) ? x.flatMap(nodes) : x && typeof x === "object" ? [x, ...nodes(x.props?.children)] : [];
 function selection() {
-  let cursor = 0, effect, current = true; const cells = [], codes = [];
+  let cursor = 0, effect, layoutEffect, current = true; const cells = [], codes = [];
   const hooks = { useRef(value) { const i = cursor++; cells[i] ??= { current: value }; return cells[i]; },
     useState(initial) { const i = cursor++; if (!(i in cells)) cells[i] = initial; return [cells[i], next => { cells[i] = next; }]; },
-    useId() { return "saved-result"; }, useEffect(fn) { effect = fn; } };
+    useId() { return "saved-result"; }, useEffect(fn) { effect = fn; }, useLayoutEffect(fn) { layoutEffect = fn; } };
   const view = loadTsx(new URL("../src/fictional-saved-run-view.tsx", import.meta.url), name => name === "react" ? hooks :
     name === "./client-error-diagnostics.ts" ? { observeClientError: code => codes.push(code) } : undefined).FictionalSavedRunView;
   const input = { execution: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", kind: "local_fictional", scenario: "standard", executedAt: "2026-10-10T10:00:00Z", durationMs: 1 },
     report: JSON.parse(readFileSync(new URL("../fixtures/fictional_update_report.json", import.meta.url))) };
   const render = () => { cursor = 0; return view({ input, isCurrent: () => current }); };
-  render(); const cleanup = effect();
-  return { render, codes, cleanup, retire() { current = false; }, action() { return nodes(render()).find(x => x.type === "button").props.onClick; } };
+  render(); const layoutCleanup = layoutEffect(), passiveCleanup = effect();
+  return { render, codes, cleanup() { layoutCleanup(); passiveCleanup(); }, retire() { current = false; }, action() { return nodes(render()).find(x => x.type === "button").props.onClick; } };
 }
 function ports(t, ui, phase) {
   const calls = [];

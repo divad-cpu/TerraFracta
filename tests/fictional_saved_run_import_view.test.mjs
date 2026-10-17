@@ -16,12 +16,12 @@ function result(later = false) {
 }
 const file = later => new File([exportFictionalSavedRun(result(later))], "PRIVATE_FILE_NAME.json", { type: "application/json" });
 function harness() {
-  let cursor = 0, effect, cleanup; const cells = [];
+  let cursor = 0, effect, cleanup, layout, layoutCleanup; const cells = [];
   const hooks = {
     useState(initial) { const i = cursor++; if (!(i in cells)) cells[i] = typeof initial === "function" ? initial() : initial;
       return [cells[i], value => { cells[i] = typeof value === "function" ? value(cells[i]) : value; }]; },
     useRef(initial) { const i = cursor++; if (!(i in cells)) cells[i] = { current: initial }; return cells[i]; },
-    useId() { return "local-files"; }, useEffect(fn) { effect = fn; },
+    useId() { return "local-files"; }, useEffect(fn) { effect = fn; }, useLayoutEffect(fn) { layout = fn; },
   };
   const saved = loadTsx(new URL("../src/fictional-saved-run-view.tsx", import.meta.url));
   const comparison = loadTsx(new URL("../app/editorial-preview/saved-run-comparison.tsx", import.meta.url));
@@ -30,7 +30,7 @@ function harness() {
   const render = () => { cursor = 0; return component.FictionalSavedRunImportView(); };
   const props = (type, fragment) => nodes(render()).find(x => x.type === type && String(x.props.id ?? "").includes(fragment))?.props;
   return { render, markup: () => renderToStaticMarkup(render()),
-    mount() { render(); cleanup = effect(); render(); }, unmount() { cleanup?.(); }, remount() { cleanup?.(); cleanup = effect(); render(); },
+    mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); render(); }, unmount() { layoutCleanup?.(); cleanup?.(); }, remount() { layoutCleanup?.(); cleanup?.(); layoutCleanup = layout?.(); cleanup = effect(); render(); },
     input: side => props("input", `-${side}-file`),
     clear(side) { nodes(render()).find(x => x.type === "button" && text(x.props.children).includes(side === "selected" ? "Clear selected" : "Clear earlier")).props.onClick(); },
     choose(side, selected) { const input = { files: selected ? [selected] : [], value: "PRIVATE_FILE_NAME" };

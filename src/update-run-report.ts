@@ -144,9 +144,11 @@ export const updateRunReportSchema = z.strictObject({
   if (report.fictionalCandidate !== null) {
     const candidate = report.fictionalCandidate;
     const origin = report.items.find((entry) => entry.itemKey === candidate.itemKey);
-    const selected = candidate.publication.snapshot.claims[0].evidence[0];
+    // Minimum array-length issues are continuable. Keep incomplete source
+    // evidence inside the normal validation refusal instead of dereferencing it.
+    const selected = candidate.publication.snapshot.claims[0]?.evidence[0];
     if (report.reportKind !== "fictional_rehearsal" || report.mode !== "shadow" ||
-        !origin || origin.outcome !== "shadow_only" || !origin.sourceBindingValid || !origin.source ||
+        !selected || !origin || origin.outcome !== "shadow_only" || !origin.sourceBindingValid || !origin.source ||
         origin.source.sourceVersionId !== candidate.decision.sourceVersionId ||
         origin.source.contentSha256 !== candidate.decision.contentSha256 ||
         origin.source.url !== candidate.decision.publicCitationUrl ||

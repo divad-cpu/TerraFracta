@@ -1,19 +1,13 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import test from "node:test";
-import ts from "typescript";
+import { loadTsx } from "./helpers/tsx_loader.mjs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parsePublicIssueProjection } from "../src/public-issue-projection.ts";
 import { syntheticReadRows } from "../app/evidence-preview/example.ts";
 import { issueSourceIndex } from "../src/issue-source-index.ts";
 
-const file = new URL("../app/issue-evidence.tsx", import.meta.url), exports = {};
-const code = ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: {
-  jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
-} }).outputText;
-new Function("require", "exports", code)(createRequire(file), exports);
+const exports = loadTsx(new URL("../app/issue-evidence.tsx", import.meta.url));
 const example = () => parsePublicIssueProjection(structuredClone(syntheticReadRows.envelope));
 const render = issue => renderToStaticMarkup(createElement(exports.IssueEvidence, { issue }));
 

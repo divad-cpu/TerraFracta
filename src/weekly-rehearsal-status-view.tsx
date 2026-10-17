@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parseWeeklyRehearsalStatus, type WeeklyRehearsalStatus } from "./weekly-rehearsal-status.ts";
 import { weeklyRehearsalTimingFields } from "./weekly-rehearsal-timing.ts";
 import { weeklyRehearsalReasonMeanings } from "./weekly-rehearsal-reasons.ts";
@@ -7,49 +7,83 @@ import { exportWeeklyRehearsal } from "./weekly-rehearsal-export.ts";
 import { withLocalRequestDeadline } from "./local-request-deadline.ts";
 import { discardLocalResponse, readLocalResponseJson, localResponseBytes } from "./local-response-json.ts";
 import { observeClientError } from "./client-error-diagnostics.ts";
+import { cancelLocalObservationRead } from "./local-observation-cancellation.ts";
 
 type View = WeeklyRehearsalStatus | { state: "idle" };
+const physicalStatusRead: { current: Promise<void> | null } = { current: null };
 export function WeeklyRehearsalStatusView() {
   const [recordedStatus, setStatus] = useState<View>({ state: "idle" }), [reading, setReading] = useState(false);
+  const [waitingForPrevious, setWaitingForPrevious] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const pending = useRef<AbortController | null>(null);
   const exportable = useRef<WeeklyRehearsalStatus | null>(null);
   const visit = useRef<object | null>(null), [owner, setOwner] = useState<object | null>(null);
   const admitted = owner !== null && visit.current === owner;
   const status: View = admitted ? recordedStatus : { state: "idle" };
+  useLayoutEffect(() => () => {
+    visit.current = null; exportable.current = null; cancelLocalObservationRead(pending.current);
+  }, []);
   useEffect(() => {
     const current = {};
     visit.current = current; setOwner(current);
     exportable.current = null; setStatus({ state: "idle" }); setDownloadMessage(null);
-    setReading(pending.current !== null);
+    const occupied = physicalStatusRead.current !== null;
+    setReading(pending.current !== null || occupied); setWaitingForPrevious(occupied);
+    if (occupied) void (async () => {
+      while (physicalStatusRead.current) await physicalStatusRead.current;
+      if (visit.current === current && pending.current === null) {
+        setReading(false); setWaitingForPrevious(false);
+      }
+    })();
     return () => {
       if (visit.current !== current) return;
       visit.current = null; exportable.current = null;
       // Retire presentation while the physical read keeps its slot until settlement.
-      pending.current?.abort();
+      cancelLocalObservationRead(pending.current);
     };
   }, []);
   async function refresh() {
     if (!admitted || visit.current !== owner || pending.current) return;
-    const controller = new AbortController(); pending.current = controller; exportable.current = null;
+    let controller: AbortController;
+    try { controller = new AbortController(); }
+    catch {
+      if (visit.current === owner && pending.current === null) {
+        exportable.current = null;
+        setStatus({ state: "held", reason: "weekly_rehearsal_unavailable" }); setDownloadMessage(null);
+      }
+      return;
+    }
+    pending.current = controller; exportable.current = null;
     const ownsRead = () => visit.current === owner && pending.current === controller && !controller.signal.aborted;
     setReading(true); setStatus({ state: "idle" }); setDownloadMessage(null);
+    let settled: Promise<void> | null = null, releaseRead = () => {};
     try {
-      const value = await withLocalRequestDeadline(controller.signal, 8_000, async signal => {
+      while (physicalStatusRead.current) {
+        setWaitingForPrevious(true);
+        await physicalStatusRead.current;
+      }
+      if (!ownsRead()) return;
+      setWaitingForPrevious(false);
+      settled = new Promise<void>(resolve => { releaseRead = resolve; });
+      physicalStatusRead.current = settled;
+      const read = withLocalRequestDeadline(controller.signal, 8_000, async signal => {
         const response = await fetch("/api/dev/update-rehearsal/status", { method: "GET", cache: "no-store", signal });
         if (!response.ok) { discardLocalResponse(response); throw new Error("Weekly history unavailable"); }
         return parseWeeklyRehearsalStatus(await readLocalResponseJson(response, signal, localResponseBytes.observation));
       }, undefined, () => {
         if (ownsRead()) setStatus({ state: "held", reason: "weekly_rehearsal_unavailable" });
       });
+      const value = await read;
       if (ownsRead()) { exportable.current = value.state === "observed" ? value : null; setStatus(value); }
     } catch {
       if (ownsRead()) setStatus({ state: "held", reason: "weekly_rehearsal_unavailable" });
     } finally {
+      releaseRead();
+      if (settled !== null && physicalStatusRead.current === settled) physicalStatusRead.current = null;
       if (pending.current === controller) {
         pending.current = null;
         // Only availability may reach an admitted successor; retired content stays withheld.
-        if (visit.current !== null) setReading(false);
+        if (visit.current !== null) { setReading(false); setWaitingForPrevious(false); }
       }
     }
   }
@@ -90,7 +124,8 @@ export function WeeklyRehearsalStatusView() {
     <p>This reads the complete bounded local receipt inventory and checks the current Monday 08:00 Oslo example window. A one-hour grace period is used for this rehearsal.</p>
     <div role="status" aria-live="polite" aria-busy={reading}>
       {reading && status.state === "held" && <p>The response deadline elapsed. The original read is still finishing; another cannot start yet.</p>}
-      {reading && status.state !== "held" && <p>Inspecting saved rehearsal history…</p>}
+      {waitingForPrevious && <p>The previous weekly status read is still finishing. Check again after it settles.</p>}
+      {reading && status.state !== "held" && !waitingForPrevious && <p>Inspecting saved rehearsal history…</p>}
       {!reading && status.state === "idle" && <p>No weekly history check has been requested in this visit.</p>}
       {status.state === "held" && <p>The weekly history could not be verified. Earlier results do not establish current coverage.</p>}
       {status.state === "observed" && <>

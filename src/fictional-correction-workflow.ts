@@ -67,7 +67,7 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
     executionId: configured ? execution.data : null, reason: null, issue: null, request: null,
     intake: null, queue: null, detail: null, reviewRequest: null, reviewReceipt: null, recovery: null };
   let owner: { controller: AbortController; settled: boolean; returned: boolean; cause: "cancel" | "deadline" | null; interrupt: () => void } | null = null;
-  let disposed = false, uncertain: "intake" | "review" | null = null;
+  let disposed = false, allocating = false, preparing = false, uncertain: "intake" | "review" | null = null;
   let queueIdentity: { snapshotId: string; capturedAt: string; expiresAt: string; total: number } | null = null;
   // The most recent read's reason does not resolve an earlier write. Controls
   // receive the coordinator's owned uncertainty as immutable observation only.
@@ -77,17 +77,27 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
     try { dependencies.onChange?.(snapshot()); } catch { fault("fictional_correction_display"); }
     return snapshot();
   }
-  const held = (reason: FictionalWorkflowReason) => publish({ phase: "held", reason });
-  function allowed() { return configured && !disposed && owner === null; }
-  function refused() { return disposed || !configured || owner !== null || uncertain !== null ? snapshot() : held("invalid_action"); }
+  const held = (reason: FictionalWorkflowReason) => disposed ? snapshot() : publish({ phase: "held", reason });
+  function allowed() { return configured && !disposed && !allocating && !preparing && owner === null; }
+  function refused() { return disposed || allocating || preparing || !configured || owner !== null || uncertain !== null ? snapshot() : held("invalid_action"); }
   function envelope(input: unknown, write: boolean) {
     const result = write ? writeEnvelope.parse(input) : readEnvelope.parse(input);
     if (result.executionId !== state.executionId) throw new Error("Fictional execution differs");
     return result;
   }
-  async function run(code: FictionalCorrectionDiagnosticCode, write: "intake" | "review" | null, work: (signal: AbortSignal) => Promise<unknown>, apply: (value: unknown) => void) {
+  async function run(code: FictionalCorrectionDiagnosticCode, write: "intake" | "review" | null, work: (signal: AbortSignal) => Promise<unknown>, apply: (value: unknown) => void, beforeDispatch?: () => void) {
     if (!allowed()) return refused();
-    const flight = { controller: new AbortController(), settled: false, returned: false, cause: null as "cancel" | "deadline" | null, interrupt: () => {} }; owner = flight;
+    let controller: AbortController;
+    allocating = true;
+    try { controller = new AbortController(); }
+    catch {
+      if (disposed) return snapshot();
+      fault(code);
+      return disposed ? snapshot() : held(write !== null ? "not_dispatched" : "unavailable");
+    } finally { allocating = false; }
+    if (disposed) return snapshot();
+    const flight = { controller, settled: false, returned: false, cause: null as "cancel" | "deadline" | null, interrupt: () => {} }; owner = flight;
+    const isCancelled = () => flight.cause === "cancel";
     let dispatched = false, retired = false, reported = false, setupFailed = false, listenerStarted = false;
     const report = () => {
       if (!disposed && flight.cause !== "cancel" && !reported) { reported = true; fault(code); }
@@ -105,7 +115,18 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
     };
     let start: number;
     try { start = now(); if (!Number.isFinite(start)) throw new Error("Invalid clock"); }
-    catch { owner = null; report(); return held("unavailable"); }
+    catch {
+      owner = null;
+      if (disposed) return snapshot();
+      if (isCancelled()) return held("cancelled");
+      report(); return held("unavailable");
+    }
+    // Injected clocks can retire this operation synchronously. No physical
+    // work has started here, so relinquish only this undispatched owner.
+    if (disposed || isCancelled()) {
+      if (owner === flight) owner = null;
+      return disposed ? snapshot() : held("cancelled");
+    }
     publish({ busy: true, reason: null });
     try {
       if (!disposed && flight.cause === null && !flight.controller.signal.aborted) {
@@ -124,6 +145,12 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
     const actual = Promise.resolve().then(async () => {
       if (disposed || flight.cause !== null || flight.controller.signal.aborted) return { kind: "cancelled" as const };
       if (setupFailed) return { kind: "not_started" as const };
+      if (beforeDispatch) {
+        beforeDispatch();
+        // Announcing the exact review intent can synchronously retire its
+        // observer. It must not count as, or permit, a backend dispatch.
+        if (disposed || flight.cause !== null || flight.controller.signal.aborted) return { kind: "cancelled" as const };
+      }
       dispatched = true;
       return work(flight.controller.signal).then(value => ({ kind: "value" as const, value }));
     }).catch(() => ({ kind: "failed" as const }));
@@ -134,7 +161,7 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
         if (disposed) return snapshot();
         // Cancellation retires the caller's observation before any finish clock
         // is read. A faulty clock cannot turn it into a technical-fault report.
-        if (flight.cause === "cancel") {
+        if (isCancelled()) {
           if (write !== null && dispatched) { uncertain = write; return held(write === "intake" ? "unknown_intake" : "unknown_review"); }
           return held("cancelled");
         }
@@ -143,6 +170,11 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
           return held(write !== null ? "not_dispatched" : "unavailable");
         }
         const elapsed = now() - start;
+        if (disposed) return snapshot();
+        if (isCancelled()) {
+          if (write !== null && dispatched) { uncertain = write; return held(write === "intake" ? "unknown_intake" : "unknown_review"); }
+          return held("cancelled");
+        }
         if (result === null || flight.controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= FICTIONAL_WORKFLOW_TIMEOUT_MS) {
           abort();
           report();
@@ -161,6 +193,10 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
         apply(checked.result);
         return snapshot();
       } catch {
+        if (!disposed && isCancelled()) {
+          if (write !== null && dispatched) { uncertain = write; return held(write === "intake" ? "unknown_intake" : "unknown_review"); }
+          return held("cancelled");
+        }
         if (!disposed) { report(); if (write !== null) uncertain = write;
           return held(write === "intake" ? "unknown_intake" : write === "review" ? "unknown_review" : "unavailable"); }
         return snapshot();
@@ -186,28 +222,34 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
     },
     prepare(target: "page" | "statement", freshId: () => string) {
       if (!allowed() || uncertain !== null || !state.issue || state.intake !== null || !["ready", "prepared"].includes(state.phase) || !["page", "statement"].includes(target)) return refused();
+      preparing = true;
       try {
         const current = { kind: "issue" as const, issue: state.issue };
         const selected = deriveCorrectionTarget(current, target === "page" ? null : state.issue.claims[0].id);
         if (selected.kind !== "available") return held("changed");
         const prepared = prepareCorrectionRequest(current, { target: selected.target, fields: fictionalCorrectionFields }, freshId, state.request);
+        if (disposed) return snapshot();
         if (prepared.kind !== "prepared") return held("invalid_draft");
         return publish({ request: prepared.request, phase: "prepared", reason: null });
-      } catch { fault("fictional_correction_prepare"); return held("unavailable"); }
+      } catch { if (disposed) return snapshot(); fault("fictional_correction_prepare"); return held("unavailable"); }
+      finally { preparing = false; }
     },
     // Allows composition with the existing actual editor callback, while only
     // the fixed authored fictional fields can cross the injected backend port.
     acceptPrepared(input: unknown) {
       if (!allowed() || uncertain !== null || !state.issue || state.intake !== null || !["ready", "prepared"].includes(state.phase)) return refused();
+      preparing = true;
       try {
         const checked = checkCorrectionRequest({ kind: "issue", issue: state.issue }, input);
+        if (disposed) return snapshot();
         if (checked.kind !== "prepared" || !same(checked.request.draft.fields, fictionalCorrectionFields)) return held("invalid_draft");
         if (state.request && state.request.requestId === checked.request.requestId && !same(state.request, checked.request)) return held("invalid_draft");
         const prepared = prepareCorrectionRequest({ kind: "issue", issue: state.issue }, checked.request.draft,
           checked.request.requestId, state.request);
         if (prepared.kind !== "prepared") return held("invalid_draft");
         return publish({ request: prepared.request, phase: "prepared", reason: null });
-      } catch { fault("fictional_correction_prepare"); return held("invalid_draft"); }
+      } catch { if (disposed) return snapshot(); fault("fictional_correction_prepare"); return held("invalid_draft"); }
+      finally { preparing = false; }
     },
     async submit() {
       if (!allowed() || uncertain !== null || !state.request || state.intake !== null || state.phase !== "prepared") return refused();
@@ -246,18 +288,19 @@ export function createFictionalCorrectionWorkflow(backend?: FictionalWorkflowBac
       if (!(state.detail.report.reviewState === "new" && nextState === "in_review" ||
           state.detail.report.reviewState === "in_review" && nextState === "closed")) return refused();
       let request: InventedReviewRequest;
+      preparing = true;
       try {
-        request = parseInventedReviewRequest({ schemaVersion: 1, eventId: freshId(), reportId: state.detail.report.reportId,
+        const eventId = freshId();
+        if (disposed) return snapshot();
+        request = parseInventedReviewRequest({ schemaVersion: 1, eventId, reportId: state.detail.report.reportId,
           expectedState: state.detail.report.reviewState, nextState, resolutionNote: nextState === "closed" ? inventedClosureNote : null });
-        if (request.eventId === state.reviewRequest?.eventId) return refused();
-      } catch { fault("fictional_correction_review"); return held("invalid_action"); }
-      return run("fictional_correction_review", "review", signal => {
-        publish({ reviewRequest: request, reviewReceipt: null, recovery: null });
-        return backend!.reviewReport(request, signal);
-      }, value => {
+        if (request.eventId === state.reviewRequest?.eventId) return held("invalid_action");
+      } catch { if (disposed) return snapshot(); fault("fictional_correction_review"); return held("invalid_action"); }
+      finally { preparing = false; }
+      return run("fictional_correction_review", "review", signal => backend!.reviewReport(request, signal), value => {
         const reviewReceipt = parseInventedReviewReceipt(value, request);
         publish({ reviewReceipt, phase: "reviewed", reason: null });
-      });
+      }, () => { publish({ reviewRequest: request, reviewReceipt: null, recovery: null }); });
     },
     async recover() {
       if (!allowed() || uncertain !== "review" || !state.reviewRequest || !state.intake) return refused();

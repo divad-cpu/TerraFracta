@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "kind": "private_feed_window_input",
+  "format": "rss20",
+  "current": {
+    "raw_base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48cnNzIHZlcnNpb249IjIuMCI+PGNoYW5uZWw+PHRpdGxlPkludmVudGVkIGZlZWQ8L3RpdGxlPjxsaW5rPmh0dHBzOi8vZXhhbXBsZS5vcmcvPC9saW5rPjxkZXNjcmlwdGlvbj5JbnZlbnRlZCBvbmx5PC9kZXNjcmlwdGlvbj48aXRlbT48Z3VpZCBpc1Blcm1hTGluaz0iZmFsc2UiPml0ZW0tb25lPC9ndWlkPjx0aXRsZT5JbnZlbnRlZCByZXZpc2VkIHRpdGxlPC90aXRsZT48bGluaz5odHRwczovL2V4YW1wbGUub3JnL29uZTwvbGluaz48L2l0ZW0+PC9jaGFubmVsPjwvcnNzPg==",
+    "receipt": {
+      "source_key": "fictional-feed",
+      "source_version_id": "10000000-0000-4000-8000-000000000002",
+      "feed_url": "https://example.org/feed.xml",
+      "content_sha256": "24f11f400b634a8f31e7fec8e5e7335da834c1bfcf50b813e3120c19467d4997",
+      "retrieved_at": "2026-10-14T12:00:00.000000Z"
+    }
+  },
+  "previous": {
+    "raw_base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48cnNzIHZlcnNpb249IjIuMCI+PGNoYW5uZWw+PHRpdGxlPkludmVudGVkIGZlZWQ8L3RpdGxlPjxsaW5rPmh0dHBzOi8vZXhhbXBsZS5vcmcvPC9saW5rPjxkZXNjcmlwdGlvbj5JbnZlbnRlZCBvbmx5PC9kZXNjcmlwdGlvbj48aXRlbT48Z3VpZCBpc1Blcm1hTGluaz0iZmFsc2UiPml0ZW0tb25lPC9ndWlkPjx0aXRsZT5JbnZlbnRlZCBlYXJsaWVyIHRpdGxlPC90aXRsZT48bGluaz5odHRwczovL2V4YW1wbGUub3JnL29uZTwvbGluaz48L2l0ZW0+PC9jaGFubmVsPjwvcnNzPg==",
+    "receipt": {
+      "source_key": "fictional-feed",
+      "source_version_id": "10000000-0000-4000-8000-000000000001",
+      "feed_url": "https://example.org/feed.xml",
+      "content_sha256": "db59fac5ac0461d274c92aa7925bdb4b35ce0509c9b376f1da5064175ffc1f09",
+      "retrieved_at": "2026-10-14T11:00:00.000000Z"
+    }
+  }
+}

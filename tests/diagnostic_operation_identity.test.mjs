@@ -72,7 +72,7 @@ test("four real observers persist distinguishable codes through one private stor
   }
   const output = join(parent, "export.json"); await exportErrorLog(directory, output);
   const bytes = await readFile(output), parsed = readDiagnosticExport(new Uint8Array(bytes).buffer);
-  assert.equal(parsed.schemaVersion, 8); assert.equal(parsed.events.length, 4);
+  assert.equal(parsed.schemaVersion, 9); assert.equal(parsed.events.length, 4);
   assert.equal(parsed.counts.server_route, 0); assert.ok(!bytes.toString().includes("PRIVATE_CANARY"));
   for (const [code, location] of operations) {
     const selected = selectDiagnosticEvents(parsed, diagnosticSelection({ code }));
@@ -83,7 +83,7 @@ test("four real observers persist distinguishable codes through one private stor
 
 test("genuine saved v1 export stays readable without attributing historical generic faults to new operations", () => {
   const old = legacy(), original = JSON.stringify(old), value = imported(old);
-  assert.equal(value.schemaVersion, 8); assert.equal(value.exportedAt, old.exportedAt);
+  assert.equal(value.schemaVersion, 9); assert.equal(value.exportedAt, old.exportedAt);
   assert.deepEqual(value.events, old.events); assert.equal(value.counts.server_route, 1);
   assert.equal(value.counts.update_worker, 1); assert.equal(value.captureCompleteness, "unknown");
   assert.equal(value.buildBinding, "not_bound_to_a_deployed_build");
@@ -97,14 +97,14 @@ test("genuine saved v1 export stays readable without attributing historical gene
 test("exact historical v1/v2 catalogues normalize in memory without reattributing generic events or rewriting fixtures", () => {
   assert.equal(Object.keys(legacyDiagnosticCodes).length, 14);
   assert.equal(Object.keys(diagnosticCodesV2).length, 18);
-  assert.equal(Object.keys(diagnosticCodes).length, 33);
+  assert.equal(Object.keys(diagnosticCodes).length, 34);
   assert.deepEqual(legacy().locations, legacyDiagnosticCodes);
   assert.deepEqual(historicalV2().locations, diagnosticCodesV2);
   assert.deepEqual(Object.keys(diagnosticCodesV3).filter(code => !Object.hasOwn(diagnosticCodesV2, code)),
     ["saved_run_export", "weekly_assessment_export"]);
   for (const old of [legacy(), historicalV2()]) {
     const original = JSON.stringify(old), value = imported(old);
-    assert.equal(value.schemaVersion, 8); assert.equal(value.exportedAt, old.exportedAt);
+    assert.equal(value.schemaVersion, 9); assert.equal(value.exportedAt, old.exportedAt);
     assert.deepEqual(value.events, old.events);
     assert.equal(value.counts.saved_run_export, 0); assert.equal(value.counts.weekly_assessment_export, 0);
     for (const [code, count] of Object.entries(old.counts)) assert.equal(value.counts[code], count);
@@ -138,7 +138,7 @@ test("historical v2 and current v6 refuse added action codes inside old or parti
   const unknownEvent = structuredClone(current); unknownEvent.events[0].code = "unknown_download";
   const forgedV2 = structuredClone(v2); forgedV2.locations.weekly_status_observer.location = "PRIVATE_CANARY";
   const wrongV2Count = structuredClone(v2); wrongV2Count.counts.browser_runtime = 2;
-  for (const invalid of [{ ...current, schemaVersion: 1 }, { ...current, schemaVersion: 2 }, { ...current, schemaVersion: 9 },
+  for (const invalid of [{ ...current, schemaVersion: 1 }, { ...current, schemaVersion: 2 }, { ...current, schemaVersion: 10 },
     { ...v2, schemaVersion: 3 }, { ...v2, counts: current.counts }, { ...current, locations: v2.locations },
     { ...v2, privateDetail: "PRIVATE_CANARY" }, unknownEvent, forgedV2, wrongV2Count]) assert.throws(() => imported(invalid));
 });
@@ -151,7 +151,7 @@ test("current v6 export and exact legacy v1 catalogue refuse mixed, forged and p
   const forged = structuredClone(old); forged.locations.server_route.location = "PRIVATE_CANARY";
   const wrongCount = structuredClone(old); wrongCount.counts.server_route = 2;
   for (const invalid of [
-    { ...current, schemaVersion: 1 }, { ...old, schemaVersion: 2 }, { ...current, schemaVersion: 2 }, { ...current, schemaVersion: 9 },
+    { ...current, schemaVersion: 1 }, { ...old, schemaVersion: 2 }, { ...current, schemaVersion: 2 }, { ...current, schemaVersion: 10 },
     { ...current, counts: old.counts }, { ...old, locations: current.locations }, partial, historicalNew, forged, wrongCount,
     { ...old, privateDetail: "PRIVATE_CANARY" },
   ]) assert.throws(() => imported(invalid));

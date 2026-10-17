@@ -13,15 +13,16 @@ function nodes(value) {
   return [value, ...nodes(value.props?.children)];
 }
 export function weeklyReportHarness() {
-  let cursor = 0, effect, cleanup; const cells = [], native = createRequire(path), exports = {};
+  let cursor = 0, effect, cleanup, layout, layoutCleanup; const cells = [], native = createRequire(path), exports = {};
   const hooks = {
     useState(initial) { const index = cursor++; cells[index] ??= initial; return [cells[index], value => { cells[index] = value; }]; },
     useRef(initial) { const index = cursor++; cells[index] ??= { current: initial }; return cells[index]; },
     useEffect(callback) { effect = callback; },
+    useLayoutEffect(callback) { layout = callback; },
   };
   new Function("require", "exports", compiled)(name => name === "react" ? hooks : name === "./weekly-rehearsal-report.ts" ? contract : native(name), exports);
   const render = () => { cursor = 0; return exports.WeeklyRehearsalReportView(); };
-  return { markup: () => renderToStaticMarkup(render()), mount() { render(); cleanup = effect(); }, unmount() { cleanup?.(); },
+  return { markup: () => renderToStaticMarkup(render()), mount() { render(); layoutCleanup = layout?.(); cleanup = effect(); }, unmount() { layoutCleanup?.(); cleanup?.(); },
     input() { return nodes(render()).find(item => item.type === "input").props; },
     button() { return nodes(render()).find(item => item.type === "button").props; } };
 }

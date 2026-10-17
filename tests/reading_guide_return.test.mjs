@@ -42,7 +42,7 @@ test('guide search hidden return and empty or invalid search recovery retain onl
 
 test('search or sources inspection serializes through existing return rules and ordinary guide remains generic',async()=>{
  for(const view of ['search','sources']){const selection=currentIssueSelection(view,{edition:issue.publicationId,q:'cell A1',type:'condition',...(view==='sources'?{relation:'context'}:{})}),back=nav.currentReadingGuideReturn(issue,selection);assert.ok(back);assert.equal(query(back).returnView,view);assert.equal(query(back).returnQ,'cell A1');assert.equal(query(back).returnType,'condition');assert.equal(Object.hasOwn(query(back),'returnRelation'),view==='sources')}
- const generic=renderToStaticMarkup(Evidence({issue}));assert.equal(target(generic,'Look up statement, source and date terms in the reading guide'),'/methodology/glossary');const page=await guide({});assert.doesNotMatch(page,/Back to the selected dossier|name="returnTo"/);assert.match(page,/19 terms match/);
+ const generic=renderToStaticMarkup(Evidence({issue}));assert.equal(target(generic,'Look up statement, source and date terms in the reading guide'),'/methodology/glossary');const page=await guide({});assert.doesNotMatch(page,/Back to the selected dossier|name="returnTo"/);assert.match(page,/22 terms match/);
 });
 
 test('closed bounded return refuses external private malformed duplicate fragment and unrelated targets',async()=>{

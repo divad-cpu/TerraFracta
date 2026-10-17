@@ -63,7 +63,7 @@ function installedReactStateDispatch() {
     () => {}, null, () => {}, () => ({}), () => {}, () => {});
 }
 function hookCells(dispatch = null) {
-  let cursor = 0, scheduled = 0; const cells = [], effects = [];
+  let cursor = 0, scheduled = 0; const cells = [], effects = [], layouts = [];
   return { hooks: {
     useState(initial) { const index = cursor++; if (!(index in cells)) cells[index] = initial;
       return [cells[index], value => {
@@ -73,10 +73,10 @@ function hookCells(dispatch = null) {
         }
       }]; },
     useRef(initial) { const index = cursor++; if (!(index in cells)) cells[index] = { current: initial }; return cells[index]; },
-    useId() { return "saved-run-export"; }, useEffect(callback) { effects.push(callback); },
+    useId() { return "saved-run-export"; }, useLayoutEffect(callback) { layouts.push(callback); }, useEffect(callback) { effects.push(callback); },
   }, scheduled: () => scheduled, clearScheduled() { scheduled = 0; }, begin() { cursor = 0; },
-  clearEffects() { effects.length = 0; }, takeEffect() { return effects.pop(); },
-  mount() { const cleanups = effects.splice(0).map(callback => callback());
+  clearEffects() { effects.length = 0; layouts.length = 0; }, takeEffect() { return effects.pop(); },
+  mount() { const cleanups = [...layouts.splice(0), ...effects.splice(0)].map(callback => callback());
     return () => cleanups.forEach(cleanup => cleanup?.()); } };
 }
 function desk(initialBaseline = baseline, state = hookCells(), observe = null) {
@@ -87,6 +87,7 @@ function desk(initialBaseline = baseline, state = hookCells(), observe = null) {
     "../../src/client-error-diagnostics.ts": { observeClientError: code => { diagnostics.push(code); observe?.(code); } },
   });
   const render = () => { state.begin(); return FictionalReviewDesk({ baseline: initialBaseline }); };
+  render(); state.mount(); state.clearScheduled();
   return { render, diagnostics, scheduled: state.scheduled, clearScheduled: state.clearScheduled,
     effect(target) {
       state.clearEffects(); const tree = render();
@@ -355,8 +356,9 @@ test("native saved-run export failure reaches its specific private diagnostic re
     finish(response.status); return response;
   }, () => "cccccccc-cccc-4ccc-8ccc-cccccccccccc", () => 0);
   const ui = view(receipt(), () => true, code => observeClientError(code, reporter));
-  ui.mount(); ui.download()(); assert.equal(await accepted, 204); ui.unmount();
+  ui.mount(); ui.download()(); assert.equal(await accepted, 204);
   assert.match(ui.markup(), /could not be exported/); assert.match(ui.markup(), /27\.4%/);
+  ui.unmount(); assert.doesNotMatch(ui.markup(), /could not be exported/);
   assert.deepEqual(Object.keys(wire[0]).sort(), ["code", "eventId"]);
   const inspection = await store.inspect(); assert.equal(inspection.events.length, 1);
   const event = inspection.events[0], original = await readFile(join(directory, event.eventId + ".json"));

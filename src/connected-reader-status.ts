@@ -37,7 +37,9 @@ export function interpretConnectedStatus(input: unknown, expected: ConnectedStat
   if (!parsed.success || parsed.data.kind === "unavailable") return { kind: "unavailable" };
   const p = parsed.data;
   if (p.kind === "changed") return p.currentGeneration > identity.generation ? { kind: "changed", currentGeneration: p.currentGeneration } : { kind: "unavailable" };
-  if (p.generation !== identity.generation || p.executionId !== identity.executionId || p.observedAt !== identity.observedAt ||
-      p.state !== identity.state || p.publicationId !== identity.publicationId) return { kind: "unavailable" };
+  const samePublication = p.publicationId === null ? identity.publicationId === null
+    : identity.publicationId !== null && p.publicationId.toLowerCase() === identity.publicationId.toLowerCase();
+  if (p.generation !== identity.generation || p.executionId.toLowerCase() !== identity.executionId.toLowerCase() || p.observedAt !== identity.observedAt ||
+      p.state !== identity.state || !samePublication) return { kind: "unavailable" };
   return { kind: "current" };
 }

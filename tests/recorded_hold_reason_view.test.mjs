@@ -1,3 +1,4 @@
+import { assertUnsentProposalControls } from "./helpers/inspection_controls.mjs";
 import assert from 'node:assert/strict';import test from 'node:test';
 import {createElement} from 'react';import {renderToStaticMarkup} from 'react-dom/server';
 import {loadTsx} from './helpers/tsx_loader.mjs';
@@ -46,7 +47,7 @@ test('foreign, corrupt, unsupported-code and withheld reports disclose no explan
 });
 test('historical passed checks remain held with inspection-only controls and the already checked return selection',()=>{
  const p=proposalReport();p.decision.reasonCodes=['qualified_checks_passed'];const browse={...proposalScope(),beforeDecidedAt:'2026-09-28T07:00:00.000001Z',beforeDecisionId:proposalId(90),reason:'qualified_checks_passed'};
- const html=plain(proposed({kind:'ok',report:p},proposalScope(),browse));assert.ok(html.includes('not a publication receipt or a current approval'));assert.ok(html.includes('Return to the selected held page (new read)'));assert.ok(html.includes('navigation only'));assert.ok(!html.includes('<form'));assert.ok(!html.includes('<button'));assert.ok(!html.includes('href="https://'));
+ const html=plain(proposed({kind:'ok',report:p},proposalScope(),browse));assert.ok(html.includes('not a publication receipt or a current approval'));assert.ok(html.includes('Return to the selected held page (new read)'));assert.ok(html.includes('navigation only'));assertUnsentProposalControls(html);assert.ok(!html.includes('href="https://'));
  const h=heldReport();h.decisions=h.decisions.slice(0,1);h.decisions[0].reasonCodes=['qualified_checks_passed'];h.decisions[0].checks=Object.fromEntries(heldCheckNames.map(name=>[name,true]));
  const checked=held({kind:'ok',report:h},heldScope(),'qualified_checks_passed');assert.ok(checked.includes('Held ·'));assert.ok(checked.includes('Showing 1 of 1'));assert.ok(checked.includes('A held record remains held.'));assert.ok(checked.includes('method="get"'));assert.ok(!checked.includes('method="post"'));
 });

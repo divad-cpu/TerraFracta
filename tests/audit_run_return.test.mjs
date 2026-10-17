@@ -35,7 +35,7 @@ function history(selected) {
 test('actual issue-choice GET form carries incoming run page rather than the next continuation', () => {
   for (const older of [false, true]) {
     const report = selectedChoices(older), html = render(Choices, { decision: { kind: 'ok', report }, selection: report.requestedRunId, cursor: report.requestedCursor });
-    const form = html.match(/<form[^>]*>[\s\S]*?<\/form>/)[0], query = Object.fromEntries([...form.matchAll(/<input[^>]*>/g)].map(m => { const a = attrs(m[0]); return [a.name, a.value]; }));
+    const form = [...html.matchAll(/<form[^>]*>[\s\S]*?<\/form>/g)].find(m => m[0].includes('aria-label="Open an audit for the selected run"'))[0], query = Object.fromEntries([...form.matchAll(/<input[^>]*>/g)].map(m => { const a = attrs(m[0]); return [a.name, a.value]; }));
     assert.equal(query.returnToRuns, '1'); assert.equal(query.runId, choiceId(1));
     if (older) { assert.equal(query.returnBeforeCreatedAt, cursor().createdAt); assert.equal(query.returnBeforeRunId, cursor().runId); assert.notEqual(query.returnBeforeRunId, report.nextCursor.runId); }
     else { assert.equal('returnBeforeCreatedAt' in query, false); assert.equal('returnBeforeRunId' in query, false); }

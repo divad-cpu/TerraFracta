@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ConnectedStatusIdentity, ConnectedStatusVerdict } from "../../src/connected-reader-status";
 import { startConnectedReaderWatch } from "../../src/connected-reader-watch";
 import { readStatusResponse } from "../../src/status-response.ts";
 
+const physicalRead: { current: Promise<void> | null } = { current: null };
+
 export function CurrentConnectedEdition({ expected, children }: { expected: ConnectedStatusIdentity; children: ReactNode }) {
   const [status, setStatus] = useState<ConnectedStatusVerdict>({ kind: "current" });
+  const stopWatch = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => () => { stopWatch.current?.(); }, [expected.generation, expected.executionId, expected.observedAt, expected.state, expected.publicationId]);
   useEffect(() => {
     let active = true;
     const changed = (value: ConnectedStatusVerdict) => { if (active) setStatus(value); };
@@ -17,16 +21,20 @@ export function CurrentConnectedEdition({ expected, children }: { expected: Conn
         });
         return readStatusResponse(response, signal);
       }, { visible: () => document.visibilityState !== "hidden", interval: setInterval, clearInterval,
-        timeout: setTimeout, clearTimeout });
+        timeout: setTimeout, clearTimeout, physical: physicalRead });
     const visible = () => { if (active) void watch.check(); };
     const retire = () => {
       active = false;
       try { watch.stop(); } catch { /* Visibility still has its own retirement. */ }
       try { document.removeEventListener("visibilitychange", visible); } catch { /* Retained events are inactive. */ }
     };
+    stopWatch.current = retire;
     try { document.addEventListener("visibilitychange", visible); }
     catch { retire(); setStatus({ kind: "unavailable" }); }
-    return retire;
+    return () => {
+      retire();
+      if (stopWatch.current === retire) stopWatch.current = null;
+    };
   }, [expected.generation, expected.executionId, expected.observedAt, expected.state, expected.publicationId]);
 
   if (status.kind === "current") return children;

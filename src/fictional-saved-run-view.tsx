@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { fictionalUpdateResultSchema, type FictionalUpdateResult } from "./fictional-update-result.ts";
 import { exportFictionalSavedRun } from "./fictional-saved-run-export.ts";
 import { FictionalRunReview } from "./fictional-run-review.tsx";
@@ -30,7 +30,10 @@ export function FictionalSavedRunView({ input, isCurrent = () => true }: {
       selection.current.generation === generation && isCurrent(); }
     catch { return false; }
   };
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useLayoutEffect(() => () => {
+    mounted.current = false; selection.current.generation++;
+  }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; selection.current.generation++; }; }, []);
 
   function download() {
     if (!result || !ownsSelection()) return;

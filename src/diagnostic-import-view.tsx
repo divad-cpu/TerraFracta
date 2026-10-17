@@ -1,13 +1,15 @@
 "use client";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { diagnosticCodes } from "./error-diagnostics.ts";
 import { diagnosticSelection, selectDiagnosticEvents, type DiagnosticReport, type DiagnosticSelection } from "./diagnostic-report.ts";
 import { readDiagnosticExport, DIAGNOSTIC_IMPORT_BYTES } from "./diagnostic-import.ts";
 import { DiagnosticRecords } from "./diagnostic-records-view.tsx";
 import { withLocalRequestDeadline } from "./local-request-deadline.ts";
+import { cancelLocalFileRead } from "./local-file-cancellation.ts";
 
 type View = { state: "idle" | "reading" | "held" | "busy" } | { state: "loaded"; report: DiagnosticReport };
 const empty: DiagnosticSelection = { code: "", origin: "", reference: "", page: 1 };
+const physicalDiagnosticFileRead: { current: Promise<void> | null } = { current: null };
 export function DiagnosticImportView() {
   const prefix = useId(), id = (part: string) => `${prefix}-${part}`;
   const [recordedView, setView] = useState<View>({ state: "idle" }), [reading, setReading] = useState(false);
@@ -23,7 +25,7 @@ export function DiagnosticImportView() {
   const ownsReport = () => ownsView() && view.state === "loaded" && observation.current === view.report && pending.current === null;
   function clear() {
     if (!ownsView()) return;
-    generation.current++; observation.current = null; pending.current?.abort(); setView({ state: "idle" });
+    generation.current++; observation.current = null; cancelLocalFileRead(pending.current); setView({ state: "idle" });
     setSelection(empty); setReference(""); setInvalidReference(false);
   }
   async function select(file: File | undefined) {
@@ -31,24 +33,35 @@ export function DiagnosticImportView() {
     if (!file) { clear(); return; }
     generation.current++; observation.current = null;
     setSelection(empty); setReference(""); setInvalidReference(false);
-    if (pending.current) { pending.current.abort(); setView({ state: "busy" }); return; }
-    const current = generation.current, controller = new AbortController(); pending.current = controller;
+    if (pending.current || physicalDiagnosticFileRead.current) { cancelLocalFileRead(pending.current); setView({ state: "busy" }); return; }
+    const current = generation.current;
+    let controller: AbortController;
+    try { controller = new AbortController(); }
+    catch { if (visit.current === owner && current === generation.current) setView({ state: "held" }); return; }
+    pending.current = controller;
     setReading(true); setView({ state: "reading" });
+    let settled: Promise<void> | null = null;
+    let releaseOwnedRead = () => {};
     try {
-      const report = await withLocalRequestDeadline(controller.signal, 8_000, async () => {
+      settled = new Promise<void>(resolve => { releaseOwnedRead = resolve; });
+      physicalDiagnosticFileRead.current = settled;
+      const read = withLocalRequestDeadline(controller.signal, 8_000, async () => {
         const size = file.size;
         if (!Number.isSafeInteger(size) || size < 2 || size > DIAGNOSTIC_IMPORT_BYTES) throw new Error("Diagnostic export size refused");
         const bytes = await file.slice(0, DIAGNOSTIC_IMPORT_BYTES + 1).arrayBuffer();
         if (controller.signal.aborted) throw new Error("Diagnostic export unavailable");
         return readDiagnosticExport(bytes, size);
       }, undefined, () => {
-        controller.abort();
+        cancelLocalFileRead(controller);
         if (visit.current === owner && current === generation.current) setView({ state: "held" });
       });
+      const report = await read;
       if (visit.current === owner && current === generation.current) { observation.current = report; setView({ state: "loaded", report }); }
     } catch {
       if (visit.current === owner && current === generation.current) setView({ state: "held" });
     } finally {
+      releaseOwnedRead();
+      if (settled !== null && physicalDiagnosticFileRead.current === settled) physicalDiagnosticFileRead.current = null;
       if (pending.current === controller) {
         pending.current = null;
         if (visit.current !== null) setReading(false);
@@ -61,14 +74,21 @@ export function DiagnosticImportView() {
     const next = diagnosticSelection({ code: selection.code, origin: selection.origin, ref: reference });
     setInvalidReference(!next); if (next) setSelection(next);
   }
+  // Retire local file access and callbacks during committed unmount.
+  useLayoutEffect(() => () => { visit.current = null; observation.current = null; generation.current++; cancelLocalFileRead(pending.current); }, []);
   useEffect(() => {
     const current = {};
     visit.current = current; setOwner(current); observation.current = null;
     setView({ state: "idle" }); setSelection(empty); setReference(""); setInvalidReference(false);
-    setReading(pending.current !== null);
+    const occupied = physicalDiagnosticFileRead.current !== null;
+    setReading(pending.current !== null || occupied);
+    if (occupied && pending.current === null) void (async () => {
+      while (physicalDiagnosticFileRead.current) await physicalDiagnosticFileRead.current;
+      if (visit.current === current && pending.current === null) setReading(false);
+    })();
     return () => {
       if (visit.current !== current) return;
-      visit.current = null; observation.current = null; generation.current++; pending.current?.abort();
+      visit.current = null; observation.current = null; generation.current++; cancelLocalFileRead(pending.current);
     };
   }, []);
   const selected = view.state === "loaded" ? selectDiagnosticEvents(view.report, selection) : null;

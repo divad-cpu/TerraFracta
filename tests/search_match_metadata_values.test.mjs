@@ -11,7 +11,7 @@ import {createPublicIssueReader} from '../src/server/public-issue-reader.ts';
 const View=loadTsx(new URL('../src/current-issue-navigation-view.tsx',import.meta.url)).CurrentIssueNavigationView;
 function issue(change=()=>{}){const envelope=structuredClone(syntheticReadRows.envelope);change(envelope.publication.snapshot);return parsePublicIssueProjection(envelope);}
 const render=(record,query={},decision={status:200,cacheControl:'no-store',issue:record})=>renderToStaticMarkup(createElement(View,{decision,selection:currentIssueSelection('search',{edition:record.publicationId,...query}),latestHref:currentIssueHref(record,'search',false)}));
-const metadata=html=>[...html.matchAll(/<dl aria-label="Matching source metadata">([\s\S]*?)<\/dl>/g)].map(m=>m[1]);
+const metadata=html=>[...html.matchAll(/<dl aria-label="Matching source metadata">([\s\S]*?)<\/dl>/g)].map(m=>m[1].replaceAll('<mark>','').replaceAll('</mark>',''));
 const numbers=html=>[...html.matchAll(/>Reference (\d+): /g)].map(m=>Number(m[1]));
 const esc=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#x27;');
 test('a publisher-only occurrence displays its literal matched value without inventing a locator match or changing edition-bound provenance',()=>{
@@ -20,7 +20,7 @@ test('a publisher-only occurrence displays its literal matched value without inv
 });
 test('a locator-only search preserves the complete literal value and normalization rather than fabricating a snippet or unrelated publisher',()=>{
  const value='  Exact ＬＯＣＮＥＥＤＬＥ row and untouched surrounding wording  ';const r=issue(s=>s.claims[0].evidence[2].locator=value),html=render(r,{q:'locneedle'}),blocks=metadata(html);
- assert.equal(blocks.length,1);assert.ok(blocks[0].includes('<dt>Exact location</dt><dd>'+r.claims[0].evidence[2].locator+'</dd>'));assert.ok(!blocks[0].includes('<dt>Publisher</dt>'));assert.deepEqual(numbers(html),[3]);assert.ok(html.includes('Adds context · Search words in: Exact location'));assert.ok(!html.includes('<mark'));
+ assert.equal(blocks.length,1);assert.ok(blocks[0].includes('<dt>Exact location</dt><dd>'+r.claims[0].evidence[2].locator+'</dd>'));assert.ok(!blocks[0].includes('<dt>Publisher</dt>'));assert.deepEqual(numbers(html),[3]);assert.ok(html.includes('Adds context · Search words in: Exact location'));assert.ok(html.includes('<mark>ＬＯＣＮＥＥＤＬＥ</mark>'));
 });
 test('all words across separate reference fields show each matching occurrence value and keep complete-statement conflict cautions',()=>{
  const r=issue(s=>{s.claims[0].evidence[0].publisher='Pubneedle original';s.claims[0].evidence[1].locator='Locneedle section';});const html=render(r,{q:'pubneedle locneedle'}),blocks=metadata(html);

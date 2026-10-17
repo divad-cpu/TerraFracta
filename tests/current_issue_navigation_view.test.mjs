@@ -140,5 +140,5 @@ test("actual page reads only the current route once and passes the edition solel
     searchParams: Promise.resolve({ edition: record.publication.id, q: "example year" }) });
   const html = renderToStaticMarkup(element);
   assert.deepEqual(calls, [record.requestedRoute]); assert.ok(html.includes("1 statement matches"));
-  assert.ok(html.includes(record.publication.snapshot.claims[0].assertion));
+  assert.ok(html.replaceAll("<mark>", "").replaceAll("</mark>", "").includes(record.publication.snapshot.claims[0].assertion));
 });

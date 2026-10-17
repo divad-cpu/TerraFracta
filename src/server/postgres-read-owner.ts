@@ -67,9 +67,18 @@ export function createPostgresReadOwner(input: unknown, applicationName: "terraf
     let began: number;
     try { began = now(); } catch { throw unavailable(); }
     if (!Number.isFinite(began)) throw unavailable();
+    // The clock is an injected observation and can admit another read. Keep
+    // the existing no-queue budget and lifecycle gate at actual admission.
+    if (parentSignal.aborted || shuttingDown || !usable() || flights.size >= MAX_CONNECTIONS) throw unavailable();
     let previousTick = began;
     const controller = new AbortController();
-    const flight: Flight = { abort: () => controller.abort() };
+    let cancelled = false, retired = false;
+    const flight: Flight = { abort: () => {
+      if (retired) return;
+      cancelled = true;
+      try { controller.abort(); } catch { /* Logical cancellation still closes the observer. */ }
+      abort();
+    } };
     flights.add(flight);
     let client: PostgresReadClient | undefined;
     let closing: Promise<void> | undefined;
@@ -97,7 +106,7 @@ export function createPostgresReadOwner(input: unknown, applicationName: "terraf
     const assertActive = () => {
       const tick = now();
       const elapsed = tick - began;
-      if (controller.signal.aborted || parentSignal.aborted || !usable() || shuttingDown ||
+      if (cancelled || controller.signal.aborted || parentSignal.aborted || !usable() || shuttingDown ||
           !Number.isFinite(tick) || tick < previousTick ||
           !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= TOTAL_READ_MS) throw unavailable();
       previousTick = tick;
@@ -143,6 +152,7 @@ export function createPostgresReadOwner(input: unknown, applicationName: "terraf
       return bytes;
     } catch { throw unavailable(); }
     finally {
+      retired = true;
       // Only an unused slot can retire immediately. Started acquisition/work
       // still needs actual settlement and the same client's close acknowledgement.
       if (!workStarted) { ended = true; workSettled = true; release(); }
@@ -169,7 +179,7 @@ export function createPostgresReadOwner(input: unknown, applicationName: "terraf
       });
     } finally {
       drained.delete(resolveDrained);
-      if (timer !== undefined) clearTimeout(timer);
+      try { if (timer !== undefined) clearTimeout(timer); } catch { /* Preserve the observed drain result. */ }
     }
   };
   return Object.freeze({ run, shutdown, user: config.user });

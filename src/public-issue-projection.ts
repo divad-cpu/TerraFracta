@@ -48,6 +48,14 @@ const claim = z.strictObject({
   ),
 });
 
+// A statement UUID identifies one occurrence throughout the checked edition.
+// UUID letter case is another spelling of the same identity; retain the supplied
+// spelling, but never admit two targets for it in either display boundary.
+const claims = z.array(claim).min(1).max(30).refine(
+  items => new Set(items.map(item => item.id.toLowerCase())).size === items.length,
+  "Duplicate claim identity in publication snapshot",
+);
+
 export const publicationReadEnvelopeSchema = z.strictObject({
   currentPublicationId: uuid,
   publication: z.strictObject({
@@ -62,7 +70,7 @@ export const publicationReadEnvelopeSchema = z.strictObject({
       title: text(240),
       summary: text(1600),
       lastEvidenceReviewOn: z.iso.date(),
-      claims: z.array(claim).min(1).max(30),
+      claims,
     }),
     dependencyManifest: z.strictObject({
       sourceVersionIds: z.array(uuid).min(1).max(120),
@@ -89,7 +97,7 @@ export const publicIssueProjectionSchema = z.strictObject({
   jurisdictionSlug: text(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   issueSlug: text(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   title: text(240), summary: text(1600), lastEvidenceReviewOn: z.iso.date(),
-  claims: z.array(claim).min(1).max(30),
+  claims,
 });
 
 export function parsePublicIssueProjection(input: unknown): PublicIssueProjection {
@@ -99,7 +107,9 @@ export function parsePublicIssueProjection(input: unknown): PublicIssueProjectio
   }
 
   const listed = new Set(publication.dependencyManifest.sourceVersionIds);
-  if (listed.size !== publication.dependencyManifest.sourceVersionIds.length) {
+  // Different UUID spellings cannot name two dependency versions. Keep exact
+  // cited/listed spelling agreement below; this does not normalize reviewed data.
+  if (new Set([...listed].map(id => id.toLowerCase())).size !== publication.dependencyManifest.sourceVersionIds.length) {
     throw new Error("Duplicate source version in dependency manifest");
   }
   const cited = new Set(publication.snapshot.claims.flatMap((item) =>

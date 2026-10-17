@@ -4,13 +4,13 @@ import { proposalScopeSchema, type ProposalScope } from "./operator-proposal-cap
 import { heldBrowseSelection, type HeldReasonFilter } from "./operator-held-browse.ts";
 import type { HeldDecisionScope } from "./operator-held-decisions.ts";
 
-export type ProposalHeldReturn = { scope: HeldDecisionScope; reason: HeldReasonFilter; runReturn?: Readonly<OperatorAuditRunReturn> };
+export type ProposalHeldReturn = { scope: HeldDecisionScope; reason: HeldReasonFilter; referenceQuery?: string; runReturn?: Readonly<OperatorAuditRunReturn> };
 export function proposalBrowseSelection(input: unknown, rethrow?: (error: unknown) => void): { scope: Readonly<ProposalScope>; held: ProposalHeldReturn | null; query: Readonly<Record<string, string>> } | null {
   try {
     if (input === null || typeof input !== "object" || Array.isArray(input)) return null;
     const inputQuery = input as Record<string, unknown>, keys = Object.keys(inputQuery);
     if (!keys.includes("runId") || !keys.includes("decisionId") || keys.some(key =>
-      !["runId", "decisionId", "beforeDecidedAt", "beforeDecisionId", "reason", "returnToRuns", "returnBeforeCreatedAt", "returnBeforeRunId"].includes(key))) return null;
+      !["runId", "decisionId", "beforeDecidedAt", "beforeDecisionId", "reason", "heldQ", "returnToRuns", "returnBeforeCreatedAt", "returnBeforeRunId", "returnRunState", "returnIssueQ"].includes(key))) return null;
     const query = captureOwnEnumerableSelectors(inputQuery, keys, true, rethrow);
     if (query === null) return null;
     const parsed = proposalScopeSchema.safeParse({ runId: query.runId, decisionId: query.decisionId });
@@ -31,6 +31,7 @@ export function capturedProposalHref(scope: ProposalScope, held: ProposalHeldRet
       query.set("beforeDecisionId", held.scope.cursor.decisionId);
     }
     if (held.reason) query.set("reason", held.reason);
+    if (held.referenceQuery) query.set("heldQ", held.referenceQuery);
     if (held.runReturn?.runId === scope.runId) for (const [key, value] of Object.entries(auditRunReturnParams(held.runReturn))) query.set(key, value);
   }
   return `/editorial-preview/held/proposal?${query}`;

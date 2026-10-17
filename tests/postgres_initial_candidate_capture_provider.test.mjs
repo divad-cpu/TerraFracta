@@ -1,0 +1,41 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {readFileSync} from "node:fs";
+import {createHash} from "node:crypto";
+import {createPostgresInitialCandidateCaptureTransport as transport,POSTGRES_INITIAL_CANDIDATE_OWNER_GUARD_SQL as GUARD} from "../src/server/postgres-initial-candidate-capture-provider.ts";
+import {createPostgresReadOwner} from "../src/server/postgres-read-owner.ts";
+import {prepareInitialCandidateLookup,parseInitialCandidateLookup} from "../src/server/initial-candidate-lookup.ts";
+import {prepareInitialCandidateCaptureRead,parseStoredInitialCandidateCapture,INITIAL_CANDIDATE_CAPTURE_READ_SQL as READ} from "../src/server/initial-candidate-capture.ts";
+const AT="2026-10-16T11:16:21.000000Z",BEGIN="BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",signal=()=>new AbortController().signal,held={message:"read_unavailable"};
+const ack=command=>({command,rowCount:null,fields:[],rows:[]}),cell=(name,value,oid=25)=>({command:"SELECT",rowCount:1,fields:[{name,dataTypeID:oid}],rows:[[value]]});
+function fixture(){const f=JSON.parse(readFileSync(new URL("../fixtures/fictional-initial-candidate-capture.json",import.meta.url))),n=JSON.parse(f.rawReceiptJson),report=Buffer.from(n.report_base64,"base64").toString(),expected={...f.preparationExpected},command=prepareInitialCandidateLookup(report,expected,AT),lookup=JSON.stringify({schema_version:1,kind:"invented_initial_candidate_lookup",scope:command.scope,principal:"postgres",session_principal:"postgres",transaction_isolation:"repeatable read",transaction_read_only:true,preparation_matched:true,observed_at:AT,matches:[{capture_id:f.id,preparation_operation_id:n.preparation_operation_id,stored_at:n.stored_at,intent_sha256:createHash("sha256").update(f.retainedIntentJson).digest("hex")}]});return {f,report,expected,command,lookup};}
+class Client{constructor(f,mutate){this.f=f;this.mutate=mutate;this.queries=[];this.ends=0;}async connect(){}on(){}async end(){this.ends++;}async query(q){this.queries.push(q);const r=q.text===BEGIN?ack("BEGIN"):q.text==="ROLLBACK"?ack("ROLLBACK"):q.text===GUARD?cell("admitted",true,16):q.text===READ?cell("capture",this.f.f.rawReceiptJson):q.text===this.f.command.sql?cell("lookup",this.f.lookup):assert.fail("No foreign query");return this.mutate?this.mutate(q,r):r;}}
+function harness(mutate){const f=fixture(),clients=[],owner=createPostgresReadOwner({host:"db.example.invalid",port:5432,database:"invented",user:"postgres",password:"INVENTED_NOT_A_CREDENTIAL",transport:{kind:"verified-tls"}},"terrafracta.operator-audit",true,async()=>{const c=new Client(f,mutate);clients.push(c);return c;},()=>0);return {f,clients,owner,t:transport(owner)};}
+test("metadata then an explicitly supplied full initial intent use distinct fixed read-only owner sessions",async()=>{
+ const h=harness(),f=h.f;const meta=await h.t.readLookup(f.report,f.expected,AT,signal());assert.equal(parseInitialCandidateLookup(meta,f.report,f.expected,AT).matches[0].captureId,f.f.id);assert.equal(h.clients.length,1);
+ const raw=await h.t.readCapture(prepareInitialCandidateCaptureRead(f.f.retainedIntentJson),signal()),parsed=parseStoredInitialCandidateCapture(raw,f.f.retainedIntentJson,f.expected,AT);assert.equal(parsed.intentJson,f.f.retainedIntentJson);assert.equal(h.clients.length,2);
+ for(const [i,c]of h.clients.entries()){assert.deepEqual(c.queries.map(q=>q.text),[BEGIN,GUARD,i===0?f.command.sql:READ,"ROLLBACK"]);assert.ok(c.queries.every(q=>q.rowMode==="array"));assert.equal(c.ends,1);}assert.deepEqual(h.clients[0].queries[2].values,f.command.values);assert.deepEqual(h.clients[1].queries[2].values,[f.f.id]);assert.equal(await h.owner.shutdown(),true);
+});
+test("foreign appended command arbitrary SQL extra operands and invalid independent report are refused before acquisition",async()=>{
+ const h=harness(),good=prepareInitialCandidateCaptureRead(h.f.f.retainedIntentJson);for(const command of [null,{},Object.create(good),{...good,sql:"SELECT tf_appended_review.capture_receipt($1::uuid)::text AS capture"},{...good,values:[...good.values,...good.values]},{...good,extra:"PRIVATE_CANARY"}])await assert.rejects(h.t.readCapture(command,signal()),held);await assert.rejects(h.t.readLookup(h.f.report,{...h.f.expected,reportSha256:"0".repeat(64)},AT,signal()),held);assert.equal(h.clients.length,0);assert.equal(await h.owner.shutdown(),true);
+});
+test("owner guard native bool shape must pass before either initial private read",async()=>{
+ for(const bad of [false,null,"true"]){const h=harness((q,r)=>q.text===GUARD?cell("admitted",bad,16):r);await assert.rejects(h.t.readLookup(h.f.report,h.f.expected,AT,signal()),held);assert.deepEqual(h.clients[0].queries.map(q=>q.text),[BEGIN,GUARD]);assert.equal(h.clients[0].ends,1);assert.equal(await h.owner.shutdown(),true);}
+ const h=harness((q,r)=>q.text===GUARD?cell("admitted",true,25):r);await assert.rejects(h.t.readCapture(prepareInitialCandidateCaptureRead(h.f.f.retainedIntentJson),signal()),held);assert.equal(h.clients[0].ends,1);assert.equal(await h.owner.shutdown(),true);
+});
+test("lookup and full capture cannot exchange column OID or private native cell shape",async()=>{
+ for(const route of ["lookup","capture"]){const h=harness((q,r)=>q.text===READ||q.text===h.f.command.sql?cell(route==="lookup"?"capture":"lookup","PRIVATE_CANARY",3802):r);await assert.rejects(route==="lookup"?h.t.readLookup(h.f.report,h.f.expected,AT,signal()):h.t.readCapture(prepareInitialCandidateCaptureRead(h.f.f.retainedIntentJson),signal()),held);assert.equal(h.clients[0].ends,1);assert.equal(await h.owner.shutdown(),true);}
+});
+test("separate metadata and full record byte ceilings measure UTF8 before rollback",async()=>{
+ for(const route of ["lookup","capture"]){const max=route==="lookup"?4096:131072;for(const extra of [0,1]){const text="é".repeat(max/2+extra),h=harness((q,r)=>q.text===READ||q.text===h.f.command.sql?cell(route,text):r),read=route==="lookup"?h.t.readLookup(h.f.report,h.f.expected,AT,signal()):h.t.readCapture(prepareInitialCandidateCaptureRead(h.f.f.retainedIntentJson),signal());if(extra)await assert.rejects(read,held);else assert.equal((await read).byteLength,max);assert.equal(h.clients[0].ends,1);assert.equal(await h.owner.shutdown(),true);}}
+});
+test("failed rollback and rejected physical close withhold otherwise complete initial bytes",async()=>{
+ const h=harness((q,r)=>q.text==="ROLLBACK"?{...r,rows:[["PRIVATE_CANARY"]]}:r);await assert.rejects(h.t.readCapture(prepareInitialCandidateCaptureRead(h.f.f.retainedIntentJson),signal()),held);assert.equal(h.clients[0].ends,1);assert.equal(await h.owner.shutdown(),true);
+ const g=harness(),original=g.owner.run;const owner={user:"postgres",shutdown:g.owner.shutdown,run:(s,execute)=>original(s,async(c,active)=>{c.end=async()=>{c.ends++;throw Error("PRIVATE_CLOSE_CANARY");};return execute(c,active);})};await assert.rejects(transport(owner).readLookup(g.f.report,g.f.expected,AT,signal()),held);assert.equal(g.clients[0].ends,1);assert.equal(await g.owner.shutdown(),false);
+});
+test("original lookup operands and owner association survive reentrant mutation before real owner admission",async()=>{
+ const h=harness(),originalExpected={...h.f.expected};let calls=0;const owner={user:"postgres",shutdown:h.owner.shutdown,run:function(s,execute){assert.equal(this,owner);calls++;h.f.expected.reportSha256="0".repeat(64);owner.run=()=>assert.fail("No redirected owner");return h.owner.run(s,execute);}},t=transport(owner);const bytes=await t.readLookup(h.f.report,h.f.expected,AT,signal());assert.equal(parseInitialCandidateLookup(bytes,h.f.report,originalExpected,AT).matches.length,1);assert.equal(calls,1);assert.equal(h.clients[0].queries[2].values[3],originalExpected.preparationIntentJson);assert.equal(await h.owner.shutdown(),true);
+});
+test("parent abort and invalid owner injection cannot select a default target",async()=>{
+ const h=harness();for(const owner of [undefined,null,{},Object.create(h.owner),{...h.owner,user:"terra_reviewer"},{...h.owner,target:"PRIVATE_CANARY"}])assert.throws(()=>transport(owner),held);const c=new AbortController();c.abort();await assert.rejects(h.t.readLookup(h.f.report,h.f.expected,AT,c.signal),held);assert.equal(h.clients.length,0);assert.equal(await h.owner.shutdown(),true);
+});

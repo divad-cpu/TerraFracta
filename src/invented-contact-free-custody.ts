@@ -43,6 +43,8 @@ export function createInventedContactFreeCustody(fixtures: unknown, clock: () =>
       if (plan.kind !== "planned" || records.has(plan.lifecycle.reportId) || requestIds.has(fixture.requestId) ||
           (plan.lifecycle.closedAtMs === null) !== (fixture.closedReason === null) ||
           (fixture.closedReason === null) !== (fixture.reviewerId === null) ||
+          plan.lifecycle.closedAtMs !== null && plan.lifecycle.erasedAtMs !== null &&
+            plan.lifecycle.closedAtMs > plan.lifecycle.erasedAtMs ||
           fixture.closedReason === null && fixture.payload.resolution !== null) return held();
       records.set(plan.lifecycle.reportId, { lifecycle: plan.lifecycle, requestId: fixture.requestId,
         target: fixture.target, closedReason: fixture.closedReason, reviewerId: fixture.reviewerId, version: 1 });

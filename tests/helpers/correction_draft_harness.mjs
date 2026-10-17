@@ -23,17 +23,41 @@ export function elements(tree) {
   if (!tree || typeof tree !== "object" || !tree.props) return [];
   return [tree, ...elements(tree.props.children)];
 }
-export function editorHarness(snapshot, scope = "connected") {
-  let states = [], cursor = 0, key;
+export function editorHarness(snapshot, scope = "connected", { autoCommit = true } = {}) {
+  let currentInput = snapshot;
+  let states = [], refs = [], effects = [], layouts = [], retiredLayouts = [], retired = [], cursor = 0, refCursor = 0, effectCursor = 0, layoutCursor = 0, key;
+  const retire = () => {
+    retiredLayouts.push(...layouts); retired.push(...effects); layouts = [];
+  };
+  const flushPassive = () => { for (const effect of retired.splice(0)) effect?.cleanup?.(); };
+  const commitLayout = () => { for (const effect of retiredLayouts.splice(0)) effect?.cleanup?.(); for (const effect of layouts) if (effect?.pending) { effect.cleanup?.(); effect.cleanup = effect.callback(); effect.pending = false; } };
+  const commit = () => { commitLayout(); flushPassive(); for (const effect of effects) if (effect?.pending) { effect.cleanup?.(); effect.cleanup = effect.callback(); effect.pending = false; } };
   const react = { useId: () => "callback-test", useState(initial) {
-    const slot = cursor++; if (!(slot in states)) states[slot] = initial;
-    return [states[slot], value => { states[slot] = typeof value === "function" ? value(states[slot]) : value; }];
+    const slot = cursor++, owned = states; if (!(slot in owned)) owned[slot] = initial;
+    return [owned[slot], value => { owned[slot] = typeof value === "function" ? value(owned[slot]) : value; }];
+  }, useRef(initial) {
+    const slot = refCursor++; if (!(slot in refs)) refs[slot] = { current: initial }; return refs[slot];
+  }, useLayoutEffect(callback, deps) {
+    const slot = layoutCursor++, previous = layouts[slot];
+    if (!previous || deps.some((value, i) => value !== previous.deps[i])) layouts[slot] = { deps, callback, cleanup: previous?.cleanup, pending: true };
+  }, useEffect(callback, deps) {
+    const slot = effectCursor++, previous = effects[slot];
+    if (!previous || deps.some((value, i) => value !== previous.deps[i])) effects[slot] = { deps, callback, cleanup: previous?.cleanup, pending: true };
   } };
   const { CorrectionDraft, CurrentIssueCorrectionDraft } = correctionModule(react);
-  return { states: () => states.slice(), render(next = snapshot) {
+  return { states: () => states.slice(), commit, commitLayout, flushPassive, unmount() { retire(); commitLayout(); flushPassive(); states = []; refs = []; effects = []; key = undefined; }, render(next = currentInput) {
+    currentInput = next;
     const selected = scope === "current" ? CurrentIssueCorrectionDraft({ issue: next }) : CorrectionDraft(next === undefined ? {} : { connectedSnapshot: next });
-    if (typeof selected.type !== "function") { states = []; key = undefined; return selected; }
-    if (key !== selected.key) { states = []; key = selected.key; }
-    cursor = 0; return selected.type(selected.props);
+    if (typeof selected.type !== "function") { retire(); states = []; refs = []; effects = []; key = undefined; return selected; }
+    if (key !== selected.key) { retire(); states = []; refs = []; effects = []; key = selected.key; }
+    cursor = 0; refCursor = 0; effectCursor = 0; layoutCursor = 0; const tree = selected.type(selected.props);
+    if (autoCommit) {
+      commit();
+      // Passive admission requests a render; return that represented admitted
+      // tree, while autoCommit:false preserves the explicit pre-admission seam.
+      cursor = 0; refCursor = 0; effectCursor = 0; layoutCursor = 0;
+      return selected.type(selected.props);
+    }
+    return tree;
   } };
 }

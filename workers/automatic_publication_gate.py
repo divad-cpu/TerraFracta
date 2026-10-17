@@ -135,7 +135,7 @@ def propose_machine_disposition(item: MachineDecisionInput) -> MachineDecisionPr
     reasons: list[str] = []
     if not _identity(item.candidate_id, 160) or not _identity(item.policy_id, 120):
         reasons.append("decision_identity_missing")
-    if item.mode not in {"shadow", "publish_eligible"}:
+    if not isinstance(item.mode, str) or item.mode not in {"shadow", "publish_eligible"}:
         reasons.append("mode_unsupported")
     if item.policy_status != "active":
         reasons.append("policy_not_active")
@@ -149,7 +149,7 @@ def propose_machine_disposition(item: MachineDecisionInput) -> MachineDecisionPr
         reasons.append("qualification_not_active")
     if item.qualification.policy_id != item.policy_id:
         reasons.append("qualification_policy_mismatch")
-    if item.change_class not in AUTO_CHANGE_CLASSES:
+    if not isinstance(item.change_class, str) or item.change_class not in AUTO_CHANGE_CLASSES:
         reasons.append("change_class_not_automatable")
     if item.change_class != item.qualification.change_class:
         reasons.append("change_class_mismatch")

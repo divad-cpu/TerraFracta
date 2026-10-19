@@ -64,7 +64,7 @@ export function createSelectedHtmlInitialCandidateCaptureReader(provider?:HtmlIn
   const reportFailure=()=>{if(!parentSignal?.aborted&&!reported){reported=true;observeDevelopmentError("operator_audit_read",record);}};
   const unavailable=():SelectedHtmlInitialCandidateCaptureDecision=>{reportFailure();return {kind:"unavailable"};};
   if(parentSignal?.aborted)return unavailable();
-  const age=elapsed();if(!Number.isFinite(age)||age<0||age>=OPERATOR_AUDIT_TIMEOUT_MS)return unavailable();
+  try{const age=elapsed();if(!Number.isFinite(age)||age<0||age>=OPERATOR_AUDIT_TIMEOUT_MS)return unavailable();}catch{return unavailable();}
   const controller=new AbortController();
   let timer:ReturnType<typeof setTimeout>|undefined,rejectCancelled=()=>{},retired=false,cancellationObserved=false,cleanupFailed=false;
   const cancelled=new Promise<never>((_resolve,reject)=>{rejectCancelled=()=>reject(Error("initial_capture_unavailable"));});

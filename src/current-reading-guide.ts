@@ -1,3 +1,4 @@
+import { captureOwnEnumerableSelectors } from "./own-enumerable-selectors.ts";
 import { currentIssueInspectionHref, currentIssueSelection, type CurrentIssueSelection } from "./current-issue-navigation.ts";
 import { publicIssueProjectionSchema, type PublicIssueProjection } from "./public-issue-projection.ts";
 
@@ -63,8 +64,14 @@ export function currentReadingGuideReturn(issue: PublicIssueProjection, selectio
 export function readingExplanationContext(input: unknown, rethrow?: (error: unknown) => void): { returnTo: string; returnAnchor?: string } | null {
   try {
     if (!input || typeof input !== "object" || Array.isArray(input)) return null;
-    const values = input as Record<string, unknown>, keys = Object.keys(values);
+    const keys = Object.keys(input);
     if (keys.some(key => !["returnTo", "returnAnchor"].includes(key)) || !keys.includes("returnTo")) return null;
+    // Observe own descriptors once, without borrowing a Proxy get result.
+    // Forward any descriptor fault to the outer framework boundary only once.
+    const values = captureOwnEnumerableSelectors(input, keys, false, error => { throw error; });
+    if (!values) return null;
+    const remaining = Object.keys(input);
+    if (remaining.length !== keys.length || remaining.some(key => !keys.includes(key))) return null;
     const returnTo = canonicalReadingGuideReturn(values.returnTo);
     if (!returnTo) return null;
     const returnAnchor = keys.includes("returnAnchor") ? canonicalReadingGuideAnchor(values.returnAnchor) : null;

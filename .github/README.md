@@ -1,5 +1,12 @@
 # TerraFracta
 
+## Curated source update — 2026-10-19
+
+This update adds reviewed local reader/editorial improvements, PDF capture/history selection contracts, source-described evaluation preparation, separate original-language and planned-milestone candidates, and an unsent milestone worksheet. Plans, completion, source support and review authority remain distinct. Development-only examples use invented records; they do not activate real sources or publish political information.
+
+Twenty-five additional machine-bound laboratory/support files remain local and excluded. The code-only workflow selects127 Python modules and341 Node test files, with its existing read-only permissions,45-minute limit and pinned actions. Hosted results are reported separately in GitHub Actions. No source collection, model call, operational database, schedule, deployment, NAS or private SSB activation is included. Private research, credentials, original source material and retained evidence remain outside this repository.
+
+
 
 ## Curated source update — 2026-10-17T18:25:47.634972+00:00
 

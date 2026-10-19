@@ -6,7 +6,7 @@ import { captureOwnEnumerableSelectors } from "../own-enumerable-selectors.ts";
 import { copyNativeByteChunk } from "../native-byte-chunk.ts";
 import { schemaCheckedUtcMicroseconds as micros } from "../exact-utc-observation.ts";
 import { htmlPreparationReviewReport } from "./html-preparation-review-report.ts";
-import { prepareWorkProposalCapture } from "./proposal-work-command.ts";
+import { prepareWorkProposalCapture, captureProposalWorkIdentity } from "./proposal-work-command.ts";
 
 // HTML initial SINGLE candidate only. Distinct from the plain report grammar. No whole-issue replacement, publication,
 // target, transport, principal, work acquisition or automatic retry is supplied.
@@ -38,7 +38,7 @@ function b64(s:string){return Buffer.from(s,"utf8").toString("base64");}
 function decode(s:string,max:number){if(s.length<4||s.length>4*Math.ceil(max/3)||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(s))throw fail();const b=Buffer.from(s,"base64");if(b.length<1||b.length>max||b.toString("base64")!==s)throw fail();const text=new TextDecoder("utf8",{fatal:true,ignoreBOM:true}).decode(b);if(!scalar(text)||!Buffer.from(text).equals(b))throw fail();return text;}
 function identity(r:ReturnType<typeof report>){const v=r.value,m=v.metadata,s=v.selection;return intentSchema.parse({schema_version:1,kind:"invented_html_initial_candidate_capture",snapshot_intent:INTENT,capture_id:s.captureId,run_id:s.runId,decision_id:s.decisionId,issue_id:s.issueId,base_publication_id:null,preparation_operation_id:v.preparation.operation_id,preparation_artifact_id:v.preparation.artifact_id,preparation_intent_sha256:sha(r.expected.preparationIntentJson),preparation_full_receipt_sha256:v.preparation.receipt_sha256,report_sha256:r.expected.reportSha256,part_sha256:[m.payload_sha256,m.selection_sha256,m.provenance_sha256,m.context_raw_sha256],preparation_observed_at:v.observedAt});}
 export function prepareHtmlInitialCandidateCaptureForWork(work:unknown,rawReport:unknown,independentExpectedReport:unknown){
- try{const r=report(rawReport,independentExpectedReport),w=own(work,["runId","requestFingerprint","workClaimId"]),prepared=prepareWorkProposalCapture(w,r.value.selection,r.payload),intentJson=canonical(identity(r));if(Buffer.byteLength(intentJson)>4096)throw fail();const values=Object.freeze([prepared.work.runId,prepared.work.requestFingerprint,prepared.work.workClaimId,b64(intentJson),b64(r.raw)]);
+ try{const w=captureProposalWorkIdentity(work),r=report(rawReport,independentExpectedReport),prepared=prepareWorkProposalCapture(w,r.value.selection,r.payload),intentJson=canonical(identity(r));if(Buffer.byteLength(intentJson)>4096)throw fail();const values=Object.freeze([prepared.work.runId,prepared.work.requestFingerprint,prepared.work.workClaimId,b64(intentJson),b64(r.raw)]);
  // Reuse the conservative complete-envelope bound from the HTML whole-capture
  // preparation. A larger admitted preparation report never enlarges the native
  // receipt budget. Later SQL must recheck actual bytes before COMMIT as well.

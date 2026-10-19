@@ -24,12 +24,12 @@ test('explicit independent capture selection issues one frozen fixed read and ma
 test('valid selection remains unconfigured without a default connection',async()=>{
  assert.deepEqual(await readSelectedAppendedCapture(fixture().input),{kind:'unconfigured'});
 });
-test('closed mandatory own inputs, full preparation and native lookup are required before provider or clock',async()=>{
+test('closed mandatory own inputs, full preparation and native lookup are required before provider dispatch',async()=>{
  let calls=0,ticks=0;const read=create(async()=>{calls++;throw Error('PRIVATE');},()=>{ticks++;return 0;},()=>{});
  for(const mutate of [x=>delete x.input.captureIntentJson,x=>x.input.extra='PRIVATE',x=>x.input.preparationReportJson='{}',x=>x.input.lookupRaw=Buffer.from('{}'),x=>Object.defineProperty(x.input,'captureId',{value:x.input.captureId,enumerable:false}),x=>Object.defineProperty(x.input,'preparationReportJson',{enumerable:true,get(){throw Error('PRIVATE');}})]){
   const x=fixture();mutate(x);assert.deepEqual(await read(x.input),{kind:'invalid_scope'});
  }
- assert.deepEqual(await read(Object.create(fixture().input)),{kind:'invalid_scope'});assert.equal(calls,0);assert.equal(ticks,0);
+ assert.deepEqual(await read(Object.create(fixture().input)),{kind:'invalid_scope'});assert.equal(calls,0);assert.equal(ticks,7);
 });
 test('explicit wrong ID, foreign preparation and wrong independent capture intent are held before full read',async()=>{
  let calls=0;const read=create(async()=>{calls++;return fixture().raw;},()=>0,()=>{});

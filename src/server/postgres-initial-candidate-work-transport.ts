@@ -1,3 +1,4 @@
+import { captureProposalWorkIdentity } from "./proposal-work-command.ts";
 import { Buffer } from "node:buffer";
 import { captureOwnEnumerableSelectors } from "../own-enumerable-selectors.ts";
 import { INITIAL_CANDIDATE_CAPTURE_SQL, prepareInitialCandidateCaptureForWork, parseStoredInitialCandidateCapture } from "./initial-candidate-capture.ts";
@@ -55,11 +56,11 @@ function captureBytes(input:unknown):Uint8Array|null{
  return new TextEncoder().encode(text);
 }
 function recoverPrepared(work:unknown,raw:unknown,retainedIntentJson:unknown,independentExpected:unknown,historicalObservedAt:unknown){
- const stored=parseStoredInitialCandidateCapture(raw,retainedIntentJson,independentExpected,historicalObservedAt);
+ const originalWork=captureProposalWorkIdentity(work),stored=parseStoredInitialCandidateCapture(raw,retainedIntentJson,independentExpected,historicalObservedAt);
  // These expectations are reconstructed only after the entire stored report
  // was admitted against the caller's independent original expectation.
  const report=JSON.parse(stored.reportJson),identity=JSON.parse(stored.intentJson);
- const command=prepareInitialCandidateCaptureForWork(work,stored.reportJson,{reportSha256:identity.report_sha256,preparationIntentJson:report.intent_json});
+ const command=prepareInitialCandidateCaptureForWork(originalWork,stored.reportJson,{reportSha256:identity.report_sha256,preparationIntentJson:report.intent_json});
  if(command.intentJson!==stored.intentJson)throw unavailable();return command;
 }
 export function createPostgresInitialCandidateWorkTransport(inputOwner:PostgresReadOwner,observePostwrite:InitialCandidatePostwriteObserver,record:DevelopmentErrorRecorder=recordDevelopmentError){

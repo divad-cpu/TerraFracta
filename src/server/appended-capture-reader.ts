@@ -61,11 +61,14 @@ export function createAppendedCaptureReader(provider?: AppendedCaptureProvider, 
     };
     const expired = () => {
       const elapsed = elapsedRead();
-      return cancellationObserved || parentSignal?.aborted || controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS;
+      return cancellationObserved || parentSignal?.aborted || (!retired && controller.signal.aborted) || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS;
     };
+    let decision: AppendedCaptureReadDecision = {kind:"unavailable"};
     try {
       parentSignal?.addEventListener("abort",cancel,{once:true});
-      timer = setTimeout(cancel,OPERATOR_AUDIT_TIMEOUT_MS);
+      const remaining = OPERATOR_AUDIT_TIMEOUT_MS - elapsedRead();
+      if (!Number.isFinite(remaining) || remaining <= 0 || remaining > OPERATOR_AUDIT_TIMEOUT_MS) throw Error("read_unavailable");
+      timer = setTimeout(cancel,remaining);
       const raw = await Promise.race([Promise.resolve().then(() => {
         if (expired()) throw Error("appended_capture_unavailable");
         return provider(captured.command,controller.signal);
@@ -75,7 +78,7 @@ export function createAppendedCaptureReader(provider?: AppendedCaptureProvider, 
       const size = copyNativeByteChunk(bytes,0,raw);
       const stored = parseStoredAppendedIssueCapture(bytes.subarray(0,size),captured.retainedIntentJson,captured.observedAt);
       if (expired()) return unavailable();
-      return {kind:"ok",stored};
+      decision = {kind:"ok",stored};
     } catch { return unavailable(); }
     finally {
       retired = true;
@@ -84,6 +87,10 @@ export function createAppendedCaptureReader(provider?: AppendedCaptureProvider, 
       try { parentSignal?.removeEventListener("abort",cancel); } catch { reportFailure(); }
       try { controller.abort(); } catch { reportFailure(); }
     }
+    // Physical retirement can cancel the caller or consume the original read
+    // budget. Recheck after it, excluding only our deliberate owned abort.
+    try { if (expired()) return unavailable(); } catch { return unavailable(); }
+    return decision;
   };
 }
 // Actual target/principal/clock/rights acceptance remains independently required.

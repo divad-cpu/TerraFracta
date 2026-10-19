@@ -11,7 +11,7 @@ const { ProposalComparisonView } = loadTsx(new URL("../src/operator-proposal-vie
 const render = (report, selection = proposalScope(), kind = "ok") => renderToStaticMarkup(createElement(ProposalComparisonView, { decision: { kind, report }, selection }));
 const sections = html => /<nav[^>]*aria-label="Sections of this captured comparison"[\s\S]*?<\/nav>/.exec(html)?.[0];
 const expectedSections = ["proposal-hold-reasons", "proposal-coverage", "proposal-reference-finder", "proposal-source-versions",
-  "proposal-statement-types", "proposal-scope-preparation", "proposal-responsibility-preparation", "proposal-policy-event-preparation", "proposal-funding-preparation", "proposal-indicator-preparation", "proposal-delivery-preparation", "proposal-preparation-packet",
+  "proposal-statement-types", "proposal-scope-preparation", "proposal-responsibility-preparation", "proposal-policy-event-preparation", "proposal-funding-preparation", "proposal-indicator-preparation", "proposal-delivery-preparation", "proposal-evaluation-preparation", "proposal-preparation-packet", "proposal-evaluation-bundle",
   "proposal-changes-heading", "proposal-base-snapshot", "proposal-proposed-snapshot"];
 
 test("a checked captured comparison offers native links to its long inspection sections", () => {
@@ -42,7 +42,7 @@ test("withheld corrupt and foreign captures expose no content section outline or
   for (const html of [render(corrupt), render(report, { runId: proposalId(99), decisionId: proposalId(2) }),
     ...["invalid_scope", "unconfigured", "unavailable", "not_found", "capture_missing", "changed"].map(kind => render(report, proposalScope(), kind))]) {
     assert.equal(sections(html), undefined);
-    assert.doesNotMatch(html, /id="proposal-(?:coverage|reference-finder|scope-preparation|responsibility-preparation|policy-event-preparation|funding-preparation|indicator-preparation|delivery-preparation|preparation-packet|base-snapshot|proposed-snapshot)"|The invented share/);
+    assert.doesNotMatch(html, /id="proposal-(?:coverage|reference-finder|scope-preparation|responsibility-preparation|policy-event-preparation|funding-preparation|indicator-preparation|delivery-preparation|evaluation-preparation|preparation-packet|evaluation-bundle|base-snapshot|proposed-snapshot)"|The invented share/);
   }
 });
 

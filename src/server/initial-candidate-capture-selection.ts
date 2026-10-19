@@ -50,6 +50,11 @@ export type SelectedInitialCandidateCaptureDecision=
  | {kind:"invalid_scope"|"not_found"|"unconfigured"|"unavailable"|"changed"};
 export function createSelectedInitialCandidateCaptureReader(provider?:InitialCandidateCaptureProvider,now=()=>performance.now(),record:DevelopmentErrorRecorder=recordDevelopmentError){
  return async(input:unknown,parentSignal?:AbortSignal):Promise<SelectedInitialCandidateCaptureDecision>=>{
+  // One original interval begins before selector descriptors execute caller code.
+  if(parentSignal?.aborted)return {kind:"unavailable"};
+  let began:number;try{began=now();}catch{return {kind:"unavailable"};}
+  if(!Number.isFinite(began))return {kind:"unavailable"};
+  const elapsed=createElapsedReadClock(now,began);
   const captured=captureSelection(input);
   if(captured===null)return {kind:"invalid_scope"};
   if(captured.kind==="not_found")return captured;
@@ -58,10 +63,8 @@ export function createSelectedInitialCandidateCaptureReader(provider?:InitialCan
   const reportFailure=()=>{if(!parentSignal?.aborted&&!reported){reported=true;observeDevelopmentError("operator_audit_read",record);}};
   const unavailable=():SelectedInitialCandidateCaptureDecision=>{reportFailure();return {kind:"unavailable"};};
   if(parentSignal?.aborted)return unavailable();
-  let began:number;
-  try{began=now();}catch{return unavailable();}
-  if(!Number.isFinite(began))return unavailable();
-  const elapsed=createElapsedReadClock(now,began),controller=new AbortController();
+  try{const age=elapsed();if(!Number.isFinite(age)||age<0||age>=OPERATOR_AUDIT_TIMEOUT_MS)return unavailable();}catch{return unavailable();}
+  const controller=new AbortController();
   let timer:ReturnType<typeof setTimeout>|undefined,rejectCancelled=()=>{},retired=false,cancellationObserved=false,cleanupFailed=false;
   const cancelled=new Promise<never>((_resolve,reject)=>{rejectCancelled=()=>reject(Error("initial_capture_unavailable"));});
   void cancelled.catch(()=>{});
@@ -69,7 +72,10 @@ export function createSelectedInitialCandidateCaptureReader(provider?:InitialCan
   const expired=()=>{const age=elapsed();return cancellationObserved||parentSignal?.aborted||(!retired&&controller.signal.aborted)||!Number.isFinite(age)||age<0||age>=OPERATOR_AUDIT_TIMEOUT_MS;};
   let decision:SelectedInitialCandidateCaptureDecision={kind:"unavailable"};
   try{
-   parentSignal?.addEventListener("abort",cancel,{once:true});timer=setTimeout(cancel,OPERATOR_AUDIT_TIMEOUT_MS);
+   parentSignal?.addEventListener("abort",cancel,{once:true});
+   const remaining=OPERATOR_AUDIT_TIMEOUT_MS-elapsed();
+   if(!Number.isFinite(remaining)||remaining<=0||remaining>OPERATOR_AUDIT_TIMEOUT_MS)throw Error();
+   timer=setTimeout(cancel,remaining);
    const raw=await Promise.race([Promise.resolve().then(()=>{if(expired())throw Error();return provider(captured.command,controller.signal);}),cancelled]);
    if(expired())throw Error();
    const bytes=new Uint8Array(131072),size=copyNativeByteChunk(bytes,0,raw);

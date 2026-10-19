@@ -21,15 +21,15 @@ test("explicit initial selection binds fixed getter and complete independently e
 });
 test("default backend remains unconfigured and confirmed zero metadata never chooses an intent or invokes a provider",async()=>{
  const f=fixture();withheld(await readSelectedInitialCandidateCapture(f.input),"unconfigured");
- f.metadata.matches=[];f.refresh();const h=harness(f);withheld(await h.read(f.input),"not_found");assert.equal(h.calls(),0);assert.equal(h.ticks(),0);assert.deepEqual(h.codes,[]);
+ f.metadata.matches=[];f.refresh();const h=harness(f);withheld(await h.read(f.input),"not_found");assert.equal(h.calls(),0);assert.equal(h.ticks(),1);assert.deepEqual(h.codes,[]);
 });
 test("exact own seven selectors and exact own two expectations reject aliases hidden fields symbols and getter failures before dispatch",async()=>{
  const changes=[i=>({...i,foreign:"PRIVATE"}),i=>{delete i.captureId;return i;},i=>Object.create(i),i=>{Object.defineProperty(i,"captureId",{enumerable:false});return i;},i=>{Object.defineProperty(i,"lookupRaw",{get(){throw Error("PRIVATE");},enumerable:true});return i;},i=>{i[Symbol("private")]=1;return i;},i=>{i.preparationExpected={...i.preparationExpected,extra:"PRIVATE"};return i;},i=>{i.preparationExpected=Object.create(i.preparationExpected);return i;},i=>{i.preparationExpected[Symbol("private")]=1;return i;},i=>{const old=i.captureId;Object.defineProperty(i,"captureId",{enumerable:true,get(){i.foreign="PRIVATE";return old;}});return i;},i=>{const old=i.preparationReportJson;Object.defineProperty(i,"preparationReportJson",{enumerable:true,get(){delete i.captureId;return old;}});return i;}];
- for(const change of changes){const h=harness();withheld(await h.read(change(h.f.input)),"invalid_scope");assert.equal(h.calls(),0);assert.equal(h.ticks(),0);assert.deepEqual(h.codes,[]);}
+ for(const change of changes){const h=harness();withheld(await h.read(change(h.f.input)),"invalid_scope");assert.equal(h.calls(),0);assert.equal(h.ticks(),1);assert.deepEqual(h.codes,[]);}
 });
 test("retained intent must bind complete original preparation identity report bytes all four parts and explicit capture before provider",async()=>{
  const fields=["capture_id","run_id","decision_id","issue_id","preparation_operation_id","preparation_artifact_id","preparation_intent_sha256","preparation_full_receipt_sha256","report_sha256","preparation_observed_at",0,1,2,3];
- for(const key of fields){const h=harness(),i=JSON.parse(h.f.input.captureIntentJson);if(typeof key==="number")i.part_sha256[key]="0".repeat(64);else i[key]=key.endsWith("sha256")?"0".repeat(64):key.endsWith("observed_at")?"2026-10-16T11:16:00.076872Z":"00000000-0000-4000-8000-000000000997";h.f.input.captureIntentJson=canonical(i);h.f.metadata.matches[0].intent_sha256=sha(h.f.input.captureIntentJson);if(key==="capture_id"){h.f.input.captureId=i.capture_id;h.f.metadata.matches[0].capture_id=i.capture_id;}h.f.refresh();withheld(await h.read(h.f.input),"invalid_scope");assert.equal(h.calls(),0);assert.equal(h.ticks(),0);}
+ for(const key of fields){const h=harness(),i=JSON.parse(h.f.input.captureIntentJson);if(typeof key==="number")i.part_sha256[key]="0".repeat(64);else i[key]=key.endsWith("sha256")?"0".repeat(64):key.endsWith("observed_at")?"2026-10-16T11:16:00.076872Z":"00000000-0000-4000-8000-000000000997";h.f.input.captureIntentJson=canonical(i);h.f.metadata.matches[0].intent_sha256=sha(h.f.input.captureIntentJson);if(key==="capture_id"){h.f.input.captureId=i.capture_id;h.f.metadata.matches[0].capture_id=i.capture_id;}h.f.refresh();withheld(await h.read(h.f.input),"invalid_scope");assert.equal(h.calls(),0);assert.equal(h.ticks(),1);}
  for(const change of [i=>i.captureId="00000000-0000-4000-8000-000000000997",i=>i.preparationExpected.reportSha256="0".repeat(64),i=>i.preparationExpected.preparationIntentJson="{}",i=>i.preparationReportJson+=" "]){const h=harness();change(h.f.input);withheld(await h.read(h.f.input),"invalid_scope");assert.equal(h.calls(),0);}
 });
 test("metadata duplicate foreign denied and malformed native envelopes are withheld as a whole before provider",async()=>{
@@ -57,7 +57,7 @@ test("invalid full capture and foreign original report cannot return partial pro
  for(const raw of [Buffer.alloc(131073),Buffer.from([255]),Buffer.from('{}'),new Proxy(Buffer.from('{}'),{})]){const h=harness(undefined,async()=>raw);withheld(await h.read(h.f.input),"unavailable");assert.equal(h.calls(),1);}
 });
 test("two retained UTC clocks keep exact microseconds without a new observation or implicit renewal",async()=>{
- for(const at of ["2026-10-16T11:16:20.999999Z","2026-10-16T11:16:21Z","2026-10-16T11:16:21.0000000Z","2026-10-16T13:16:21.000000+02:00"]){const h=harness();h.f.input.captureObservedAt=at;withheld(await h.read(h.f.input),"invalid_scope");assert.equal(h.calls(),0);assert.equal(h.ticks(),0);}
+ for(const at of ["2026-10-16T11:16:20.999999Z","2026-10-16T11:16:21Z","2026-10-16T11:16:21.0000000Z","2026-10-16T13:16:21.000000+02:00"]){const h=harness();h.f.input.captureObservedAt=at;withheld(await h.read(h.f.input),"invalid_scope");assert.equal(h.calls(),0);assert.equal(h.ticks(),1);}
  const h=harness();h.f.input.captureObservedAt=LOOKUP;const r=await h.read(h.f.input);assert.equal(r.kind,"ok");assert.equal(r.stored.observedAt,LOOKUP);
  const g=harness();g.f.metadata.observed_at="2026-10-16T11:16:21.000001Z";g.f.refresh();withheld(await g.read(g.f.input),"invalid_scope");assert.equal(g.calls(),0);
 });

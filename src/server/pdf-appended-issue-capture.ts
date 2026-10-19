@@ -58,6 +58,17 @@ export function preparePdfAppendedIssueCapture(bundle:unknown,independentExpecte
  }catch{throw fail();}
 }
 export function preparePdfAppendedIssueCaptureRead(retainedIntentJson:unknown){try{const i=intent(retainedIntentJson);return Object.freeze({sql:PDF_APPENDED_CAPTURE_READ_SQL,values:Object.freeze([i.capture_id])});}catch{throw fail();}}
+// Admit all independently retained reader selectors before any clock/provider
+// callback. This checks intent correspondence only; full receipt admission is
+// still mandatory after the read and cannot authenticate the supplied source.
+export function preparePdfAppendedCaptureReadScope(retainedIntentJson:unknown,independentExpected:unknown,observedAt:unknown){
+ try{
+  const e=expected(independentExpected),i=intent(retainedIntentJson),observed=instant.parse(observedAt);
+  if(e.compositionSha256!==i.part_sha256[5]||e.candidateReportSha256!==i.part_sha256[0]||e.baselineSha256!==i.part_sha256[1]||e.contextSha256!==i.part_sha256[3]||
+   sha(e.preparationIntentJson)!==i.preparation_intent_sha256||e.preparationArtifactId!==i.preparation_artifact_id||e.preparationStoredAt!==i.preparation_stored_at||e.observedAt!==i.composition_observed_at||micros(observed)<micros(i.composition_observed_at))throw fail();
+  return Object.freeze({retainedIntentJson:retainedIntentJson as string,expected:e,observedAt:observed,command:preparePdfAppendedIssueCaptureRead(retainedIntentJson)});
+ }catch{throw fail();}
+}
 export function parseStoredPdfAppendedIssueCapture(raw:unknown,retainedIntentJson:unknown,independentExpected:unknown,observedAt:unknown){
  try{
   const e=expected(independentExpected),i=intent(retainedIntentJson),observed=instant.parse(observedAt),bytes=new Uint8Array(131072),size=copyNativeByteChunk(bytes,0,raw);

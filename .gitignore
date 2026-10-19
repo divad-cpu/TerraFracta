@@ -315,3 +315,42 @@ __pycache__/
 /tests/update_choice_intent.test.mjs
 /tests/update_layout_retirement.test.mjs
 /tests/weekly_layout_retirement.test.mjs
+
+# Local-only PDF owner native protocol and its private-dependency scope.
+/scripts/check_pdf_owner_protocol_native.mjs
+/scripts/rehearse_pdf_owner_protocol.py
+/tests/test_pdf_owner_protocol_scope.py
+
+# Local-only planned PDF native closeout and private-dependency scope.
+/scripts/check_pdf_planned_closeout_native.mjs
+/scripts/rehearse_pdf_planned_closeout.py
+/tests/test_pdf_planned_closeout_scope.py
+
+# Local-only complete planned PDF closed-state export and receiver.
+/scripts/pdf_planned_closed_contract.py
+/scripts/rehearse_pdf_planned_closed_export.py
+/scripts/rehearse_pdf_planned_closed_restore.py
+/tests/test_pdf_planned_closed_export_scope.py
+/tests/test_pdf_planned_closed_restore_scope.py
+
+# Local-only first PDF owner native protocol and scope.
+/scripts/rehearse_pdf_initial_owner_protocol.py
+/scripts/check_pdf_initial_owner_protocol_native.mjs
+/tests/test_pdf_initial_owner_protocol_scope.py
+
+# Local-only initial PDF explicit selection and actual claim takeover laboratory.
+/scripts/rehearse_pdf_initial_selection_protocol.py
+/scripts/check_pdf_initial_selection_protocol_native.mjs
+/tests/test_pdf_initial_selection_protocol_scope.py
+
+# Local-only initial PDF manifest-bound held closeout.
+/scripts/rehearse_pdf_initial_planned_closeout.py
+/scripts/check_pdf_initial_planned_closeout_native.mjs
+/tests/test_pdf_initial_planned_closeout_scope.py
+
+# Local-only complete initial PDF planned CLOSED export and receiver.
+/scripts/pdf_initial_planned_closed_contract.py
+/scripts/rehearse_pdf_initial_planned_closed_export.py
+/scripts/rehearse_pdf_initial_planned_closed_restore.py
+/tests/test_pdf_initial_planned_closed_export_scope.py
+/tests/test_pdf_initial_planned_closed_restore_scope.py

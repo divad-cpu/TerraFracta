@@ -41,6 +41,11 @@
     "src/server/pdf-appended-issue-review.ts",
     "src/server/pdf-appended-issue-capture.ts",
     "src/server/pdf-appended-capture-work.ts",
+    "src/server/postgres-pdf-appended-work-transport.ts",
+    "src/server/pdf-appended-capture-reader.ts",
+    "src/server/pdf-appended-capture-lookup.ts",
+    "src/server/pdf-appended-capture-selection.ts",
+    "src/server/postgres-pdf-appended-capture-provider.ts",
     "src/server/postgres-initial-candidate-work-transport.ts",
     "src/contact-free-correction-policy.ts",
     "src/invented-contact-free-custody.ts",
@@ -72,7 +77,13 @@
     "src/server/postgres-html-initial-candidate-work-transport.ts",
     "src/server/html-initial-candidate-lookup.ts",
     "src/server/html-initial-candidate-capture-selection.ts",
-    "src/server/postgres-html-initial-candidate-capture-provider.ts"
+    "src/server/postgres-html-initial-candidate-capture-provider.ts",
+    "src/server/pdf-initial-candidate-capture-scope.ts",
+    "src/server/postgres-pdf-initial-candidate-work-transport.ts",
+    "src/server/postgres-pdf-initial-candidate-capture-provider.ts",
+    "src/server/pdf-initial-candidate-capture-reader.ts",
+    "src/server/pdf-initial-candidate-capture-lookup.ts",
+    "src/server/pdf-initial-candidate-capture-selection.ts"
   ],
   "exclude": [
     "node_modules"

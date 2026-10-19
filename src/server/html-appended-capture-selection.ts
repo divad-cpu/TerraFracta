@@ -38,17 +38,22 @@ export type SelectedHtmlAppendedCaptureDecision =
   | {kind:"invalid_scope"|"not_found"|"unconfigured"|"unavailable"|"changed"};
 export function createSelectedHtmlAppendedCaptureReader(provider?:HtmlAppendedCaptureProvider,now=()=>performance.now(),record:DevelopmentErrorRecorder=recordDevelopmentError) {
   return async(input:unknown,signal?:AbortSignal):Promise<SelectedHtmlAppendedCaptureDecision> => {
+    // Start the original interval before selector descriptors execute caller code.
+    if(signal?.aborted)return {kind:"unavailable"};
+    let began:number;try{began=now();}catch{return {kind:"unavailable"};}
+    if(!Number.isFinite(began))return {kind:"unavailable"};
+    const elapsed=createElapsedReadClock(now,began);
     const captured=capturedSelection(input);
     if(captured===null)return {kind:"invalid_scope"};
     if(captured.kind==="not_found")return captured;
     try {
-      // One original interval spans the inner read and final selection checks.
-      // Every inner observation advances the same nonrenewing clock history.
-      const began=now();
-      if(!Number.isFinite(began))return {kind:"unavailable"};
-      const elapsed=createElapsedReadClock(now,began);
       const active=()=>{const age=elapsed();return !signal?.aborted&&Number.isFinite(age)&&age>=0&&age<OPERATOR_AUDIT_TIMEOUT_MS;};
-      const sharedNow=()=>{const age=elapsed();return Number.isFinite(age)&&age>=0&&age<OPERATOR_AUDIT_TIMEOUT_MS?began+age:NaN;};
+      let nestedStarted=false;
+      const sharedNow=()=>{
+        const age=elapsed();if(!Number.isFinite(age)||age<0||age>=OPERATOR_AUDIT_TIMEOUT_MS)return NaN;
+        if(!nestedStarted){nestedStarted=true;return began;}
+        return began+age;
+      };
       if(!active())return {kind:"unavailable"};
       const read=createHtmlAppendedCaptureReader(provider,sharedNow,record);
       const result=await read({retainedIntentJson:captured.intentJson,observedAt:captured.observedAt},signal);

@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { canonicalProposalJson } from "../operator-proposal-capture.ts";
 import { prepareWorkProposalCapture } from "./proposal-work-command.ts";
-import { preparePdfAppendedIssueCapture } from "./pdf-appended-issue-capture.ts";
+import { preparePdfAppendedIssueCapture, preparePdfAppendedCaptureReadScope, parseStoredPdfAppendedIssueCapture } from "./pdf-appended-issue-capture.ts";
 
 // Pure complete PDF companion preparation only. Fixed SQL remains unexecuted;
 // identifiers do not authenticate a principal or establish a current work lease.
@@ -38,5 +38,18 @@ export function preparePdfAppendedCaptureForWork(work:unknown,bundle:unknown,ind
   return Object.freeze({sql:PDF_APPENDED_WORK_CAPTURE_SQL,values,work:checked.work,bundle:capture.bundle,expected:capture.expected,
    intentJson:capture.intentJson,intentSha256:capture.intentSha256,receiptEstimate:capture.receiptEstimate,
    evidenceState:"invented_pdf_unexecuted_complete_association_requires_current_outer_work_fence" as const});
+ }catch{throw fail();}
+}
+
+// Explicit recovery is a new current-work attempt over the exact complete
+// historical receipt. Never renew its observation, infer its independent eight
+// selectors from native rows, or fall back to the manual seven-operand writer.
+export function recoverPdfAppendedCaptureForWork(work:unknown,raw:unknown,retainedIntentJson:unknown,independentExpected:unknown,historicalObservedAt:unknown){
+ try{
+  const originalWork=capturedWork(work),scope=preparePdfAppendedCaptureReadScope(retainedIntentJson,independentExpected,historicalObservedAt);
+  const stored=parseStoredPdfAppendedIssueCapture(raw,scope.retainedIntentJson,scope.expected,scope.observedAt);
+  const prepared=preparePdfAppendedCaptureForWork(originalWork,stored.bundle,scope.expected);
+  if(prepared.intentJson!==scope.retainedIntentJson)throw fail();
+  return prepared;
  }catch{throw fail();}
 }

@@ -13,5 +13,6 @@ export default function SavedPdfPreparationExample(){
     <p><a href="/editorial-preview/pdf-held-preparation">Inspect a separate detached PDF candidate example</a></p>
     <p><a href="/editorial-preview/pdf-append-review">Inspect a separate PDF whole-issue preparation example</a></p>
     <p><a href="/editorial-preview/pdf-initial-capture">Inspect a separate captured PDF candidate example</a></p>
+    <p><a href="/editorial-preview/pdf-initial-capture-history">Choose a separate saved initial PDF candidate</a></p>
     <p><a href="/editorial-preview">Back to the review desk</a></p></div>;
 }

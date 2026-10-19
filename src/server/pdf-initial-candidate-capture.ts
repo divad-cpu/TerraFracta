@@ -2,11 +2,10 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { canonicalProposalJson as canonical,capturedProposalEnvelopeSchema } from "../operator-proposal-capture.ts";
-import { captureOwnEnumerableSelectors } from "../own-enumerable-selectors.ts";
 import { copyNativeByteChunk } from "../native-byte-chunk.ts";
 import { schemaCheckedUtcMicroseconds as micros } from "../exact-utc-observation.ts";
 import { pdfPreparationReviewReport } from "./pdf-preparation-review-report.ts";
-import { prepareWorkProposalCapture } from "./proposal-work-command.ts";
+import { prepareWorkProposalCapture, captureProposalWorkIdentity } from "./proposal-work-command.ts";
 import { proposalCaptureSelectionSchema } from "./proposal-capture-command.ts";
 
 // PDF initial SINGLE candidate only. Preserves binary-original and whole-derived-page provenance. No whole-issue replacement, publication,
@@ -22,11 +21,6 @@ export const PDF_INITIAL_CANDIDATE_CAPTURE_SQL="SELECT tf_pdf_initial_candidate.
 export const PDF_INITIAL_CANDIDATE_CAPTURE_READ_SQL="SELECT tf_pdf_initial_candidate.capture_receipt($1::uuid)::text AS capture";
 const fail=()=>Error("pdf_initial_candidate_capture_unavailable");
 function scalar(s:string){return !/[\ud800-\udfff]/u.test(s);}
-function own(value:unknown,keys:readonly string[]){
- if(value===null||typeof value!=="object"||Array.isArray(value))throw fail();
- const check=()=>{const actual=Reflect.ownKeys(value);if(actual.length!==keys.length||actual.some(k=>typeof k!=="string"||!keys.includes(k)||!Object.getOwnPropertyDescriptor(value,k)?.enumerable))throw fail();};
- check();const captured=captureOwnEnumerableSelectors(value,keys);if(captured===null)throw fail();check();return captured;
-}
 function report(input:unknown,expected:unknown){
  if(typeof input!=="string"||!scalar(input)||Buffer.byteLength(input,"utf8")<2||Buffer.byteLength(input,"utf8")>262144)throw fail();
  const r=pdfPreparationReviewReport(input,expected);if(r===null)throw fail();
@@ -39,7 +33,7 @@ function b64(s:string){return Buffer.from(s,"utf8").toString("base64");}
 function decode(s:string,max:number){if(s.length<4||s.length>4*Math.ceil(max/3)||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(s))throw fail();const b=Buffer.from(s,"base64");if(b.length<1||b.length>max||b.toString("base64")!==s)throw fail();const text=new TextDecoder("utf8",{fatal:true,ignoreBOM:true}).decode(b);if(!scalar(text)||!Buffer.from(text).equals(b))throw fail();return text;}
 function identity(r:ReturnType<typeof report>){const v=r.value,m=JSON.parse(v.report.intent_json),s=v.candidate.selection;return intentSchema.parse({schema_version:1,kind:"invented_pdf_initial_candidate_capture",snapshot_intent:INTENT,capture_id:s.captureId,run_id:s.runId,decision_id:s.decisionId,issue_id:s.issueId,base_publication_id:null,preparation_operation_id:v.report.preparation.operation_id,preparation_artifact_id:v.report.preparation.artifact_id,preparation_intent_sha256:sha(r.expected.preparationIntentJson),preparation_full_receipt_sha256:v.report.preparation.receipt_sha256,report_sha256:r.expected.reportSha256,part_sha256:[m.payload_sha256,m.selection_sha256,m.provenance_sha256,m.context_raw_sha256],preparation_observed_at:v.report.observed_at});}
 export function preparePdfInitialCandidateCaptureForWork(work:unknown,rawReport:unknown,independentExpectedReport:unknown){
- try{const r=report(rawReport,independentExpectedReport),w=own(work,["runId","requestFingerprint","workClaimId"]),prepared=prepareWorkProposalCapture(w,r.value.candidate.selection,r.payload),intentJson=canonical(identity(r));if(Buffer.byteLength(intentJson)>4096)throw fail();const values=Object.freeze([prepared.work.runId,prepared.work.requestFingerprint,prepared.work.workClaimId,b64(intentJson),b64(r.raw)]);
+ try{const w=captureProposalWorkIdentity(work),r=report(rawReport,independentExpectedReport),prepared=prepareWorkProposalCapture(w,r.value.candidate.selection,r.payload),intentJson=canonical(identity(r));if(Buffer.byteLength(intentJson)>4096)throw fail();const values=Object.freeze([prepared.work.runId,prepared.work.requestFingerprint,prepared.work.workClaimId,b64(intentJson),b64(r.raw)]);
  // Reuse the conservative complete-envelope bound of existing initial contracts.
  // A larger admitted PDF preparation report never enlarges the native
  // receipt budget. Later SQL must recheck actual bytes before COMMIT as well.

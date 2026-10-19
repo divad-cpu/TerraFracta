@@ -1,5 +1,34 @@
 # Development and public updates
 
+## 2026-10-18T11:52:40.051681+00:00 — Apply existing rules to documented planned milestones
+
+Local documented-milestone development now preserves targets and original date precision, combines plan/language supplements against one publication and adds an unsent worksheet to the captured editorial comparison. Calendar position never implies completion or delay; private preparations and fictional review rows confer no publication authority. Focused author and independent checks and final types/build pass; Browser, actual sources/editorial/rights/operations and release remain separate. NAS/private SSB remain deferred. No dependency, public data format, provider, writer or schedule is activated.
+
+## 2026-10-18T11:12:57.660564+00:00 — Isolated original-language candidate exercise
+
+A new development-only source-language exercise preserves the existing publication format while displaying a separate candidate with explicit unknowns and exact reference links. The pure qualifier reuses all base rights/head/content checks and requires separately bound accepted-looking language/final review records; the displayed values and content hashes are entirely invented. Source language is never inferred from an English title, publisher or registration. No default provider, public schema, writer, database, source service, model, collection or publication operation is added.
+
+Focused author and independent checks pass; final typecheck/build PASS on544 unchanged inputs,79 production traces/private0/Browserfalse. Future334 Node/127 Python selectors are registration only. The fixture typecheck failure and corrected source retain separate epochs. Real language-competent/source/rights/operational/Browser/public acceptance and explicit release remain separate. NAS/private SSB stay deferred.
+
+## 2026-10-18T10:52:19.298642+00:00 — Private evaluation preparation and exact gathered bundle
+
+The checked local comparison now includes an unsent source-described evaluation worksheet and a distinct exact bundle with the unchanged six-slot preparation packet. A gathered read-only view preserves separate dimensions and original reference choices; editing counts and supplied wording are no review or causal verdict. Explanation-return selectors preserve their independently observed edition. The local component-test loader refuses syntax errors before execution.
+
+Focused author checks and separate bounded reviews pass. Final local typecheck/build pass on538 unchanged inputs;78 production traces include zero private archive files, with Browser unverified. Future workflow registration selects331 Node files/127 Python modules; no whole or hosted CI run is claimed. The syntax-failure predecessor and corrected successor remain distinct evidence epochs.
+
+No new dependency, public data schema, default provider, collection, authentication, storage, source approval, schedule, deployment or publication is enabled. Browser and real-source/editorial/operational/public acceptance remain separate. NAS/private SSB stay deferred; follow-up source release requires authorization.
+
+## 2026-10-18T09:49:05.704250+00:00 — Initial PDF planned held closeout and complete saved-choice flow
+
+The distinct initial and complete whole-issue PDF branches now both expose passive explicit saved-choice examples locally. The whole example labels its generated metadata; its separately supplied complete six-part receipt/eight expectations remain unchanged. Existing fixed examples are preserved. No default backend, actual source approval, present-head comparison or editorial action is enabled.
+
+Affected typecheck/build pass on532 unchanged inputs;78 production traces/private0/Browserfalse. Future322 Node/127 Python selectors do not claim a whole or hosted run. Private machine-bound planned/restore recipes and evidence remain excluded. NAS/private SSB and all source/privacy/publication/release gates persist.
+
+## 2026-10-18T09:31:06.830332+00:00 — Initial PDF explicit history and actual current-work recovery
+
+Explicit local PDF owner lookup/selection and a passive two-choice initial PDF history reuse independent complete preparation/receipt checks. Original read deadlines include selector callbacks and every nested physical timer; existing saved-history wrappers keep the same original interval. The new development-only route opens no PDF, database or source service and labels later author readmission separately from native history. Existing fixed examples remain available.
+
+Affected focused tests, typecheck and production build pass;77 production traces include no private archive files. Future workflow registration selects320 Node files/127 Python modules; no whole or hosted run is claimed. Machine-specific native laboratory recipes and private evidence remain excluded. No default provider, source approval, current-work/publication authority, operational job or deployment is enabled. NAS/private SSB remain deferred; another source release requires authorization.
 
 ## Curated source update — 2026-10-17T18:25:47.634972+00:00
 
@@ -369,3 +398,29 @@ remain available. The older editor harness returns the admitted render after
 auto-commit; its pre-admission mode remains explicit. Local native author evidence
 and separate review are distinct from the unexecuted whole/hosted code command.
 No report, provider call, database write or publication is enabled by this work.
+
+
+The PDF owner adapters now provide explicit complete-capture work transport,
+historical read, preparation-bound lookup and explicit selection. They require
+separately supplied original expectations; no default provider or public route
+is enabled. Reader retirement is checked before candidate delivery. Shared work
+identity is captured before accepted report callbacks. Focused local tests,
+independent review and applicable typecheck/build pass; future workflow selectors
+are registrations, not a new hosted run. Invented PostgreSQL laboratory closeout
+results do not qualify sources, operators, deployment or publication.
+
+
+Initial PDF single-candidate adapters now preserve the independent five report
+selectors through fixed owner write/read and explicit recovery. Four parts and
+the required empty head remain distinct from complete-issue replacement. No
+default backend or route is enabled. Focused canonical integration, source review
+and typecheck/build pass. Actual initial transport evidence is recorded separately from these checks.
+Local complete closed-state PDF export/recovery uses existing archive and restore
+engines with original manifest/finish preservation; its narrow named profile
+qualification does not establish arbitrary catalogue or operational equivalence.
+
+
+The initial PDF owner protocol also has fresh invented native evidence for first
+insertion, uncertain response, explicit same-original-work recovery and historical
+reading after restart. This leaves defaults inactive and does not qualify a new
+current claim, archive, source, principal, Browser or operational deployment.

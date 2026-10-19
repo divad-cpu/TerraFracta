@@ -47,7 +47,8 @@ export function createProposalReader(provider?: ProposalProvider, now = () => pe
       rejectCancelled();
       try { controller.abort(); } catch { /* Observation ends even if physical abort refuses. */ }
     };
-    const expired = () => { const elapsed = elapsedRead(); return cancellationObserved || parentSignal?.aborted || controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS; };
+    const expired = () => { const elapsed = elapsedRead(); return cancellationObserved || parentSignal?.aborted || (!retired && controller.signal.aborted) || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS; };
+    let decision: ProposalReadDecision = {kind:"unavailable"};
     try {
       parentSignal?.addEventListener("abort", cancel, { once: true });
       timer = setTimeout(cancel, OPERATOR_AUDIT_TIMEOUT_MS);
@@ -61,7 +62,7 @@ export function createProposalReader(provider?: ProposalProvider, now = () => pe
       if (size < 2) return unavailable();
       const envelope = parseCapturedProposalEnvelope(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size))));
       if (envelope.requested.runId !== scope.runId || envelope.requested.decisionId !== scope.decisionId || expired()) return unavailable();
-      return envelope.status === "ok" ? { kind: "ok", report: envelope } : { kind: envelope.status as "not_found" | "capture_missing" | "changed" };
+      decision = envelope.status === "ok" ? { kind: "ok", report: envelope } : { kind: envelope.status as "not_found" | "capture_missing" | "changed" };
     } catch { return unavailable(); }
     finally {
       retired = true;
@@ -70,6 +71,9 @@ export function createProposalReader(provider?: ProposalProvider, now = () => pe
       try { parentSignal?.removeEventListener("abort", cancel); } catch { reportFailure(); }
       try { controller.abort(); } catch { reportFailure(); }
     }
+    // Retirement callbacks cannot cross the original caller/time boundary.
+    try { if (expired()) return unavailable(); } catch { return unavailable(); }
+    return decision;
   };
 }
 // Explicit trusted installation/account/identity acceptance is still required.

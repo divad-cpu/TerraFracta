@@ -10,12 +10,12 @@ test('explicit HTML selection reads one fixed full capture and joins the exact h
  assert.deepEqual(await readSelectedHtmlAppendedCapture(f.selection),{kind:'unconfigured'});
 });
 test('HTML selection never chooses a candidate or manufactures independent intent from lookup metadata',async()=>{
- const f=fixture();let calls=0;const read=createSelectedHtmlAppendedCaptureReader(()=>{calls++;assert.fail('No provider');},()=>{calls++;assert.fail('No clock');});
+ const f=fixture();let calls=0;const read=createSelectedHtmlAppendedCaptureReader(()=>{calls++;assert.fail('No provider');},()=>0);
  for(const input of [null,{},Object.create(f.selection),{...f.selection,captureId:undefined},{...f.selection,captureIntentJson:undefined},{...f.selection,extra:true},{...f.selection,[Symbol('extra')]:true},{...f.selection,captureId:'00000000-0000-4000-8000-000000000999'},{...f.selection,preparationIntentJson:'{}'}])assert.deepEqual(await read(input),{kind:'invalid_scope'});
  const changing={...f.selection};Object.defineProperty(changing,'captureId',{enumerable:true,get(){changing.extra=true;return f.native.capture_id;}});assert.deepEqual(await read(changing),{kind:'invalid_scope'});assert.equal(calls,0);
 });
 test('a legitimate empty lookup is not_found and never triggers the full reader',async()=>{
- const f=fixture();f.lookup.matches=[];f.selection.lookupRaw=Buffer.from(JSON.stringify(f.lookup));assert.deepEqual(await createSelectedHtmlAppendedCaptureReader(()=>assert.fail('No provider'),()=>assert.fail('No clock'))(f.selection),{kind:'not_found'});
+ const f=fixture();f.lookup.matches=[];f.selection.lookupRaw=Buffer.from(JSON.stringify(f.lookup));assert.deepEqual(await createSelectedHtmlAppendedCaptureReader(()=>assert.fail('No provider'),()=>0)(f.selection),{kind:'not_found'});
 });
 test('same capture with a changed metadata store timestamp is withheld after complete read',async()=>{
  const f=fixture();f.lookup.matches[0].stored_at='2026-10-18T02:00:19.000001Z';f.selection.lookupRaw=Buffer.from(JSON.stringify(f.lookup));let calls=0;

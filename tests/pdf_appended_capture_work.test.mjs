@@ -74,5 +74,5 @@ test('new source is a pure complete wrapper with fixed SQL and no dispatch backe
  const source=readFileSync(new URL('../src/server/pdf-appended-capture-work.ts',import.meta.url),'utf8');
  assert.match(source,/prepareWorkProposalCapture\(originalWork,/);assert.match(source,/preparePdfAppendedIssueCapture\(bundle,independentExpected\)/);
  assert.doesNotMatch(source,/createPostgres|Client\b|process\.env|fetch\(|capture_held_proposal\(|export function (?:recover|read|capture)\b/);
- assert.equal((source.match(/export function /g)??[]).length,1);assert.doesNotMatch(source,/return Object\.freeze\(\{[^;]*(?:capturePreparation|capture:|generic:)/s);
+ assert.equal((source.match(/export function /g)??[]).length,2);assert.doesNotMatch(source,/return Object\.freeze\(\{[^;]*(?:capturePreparation|capture:|generic:)/s);
 });

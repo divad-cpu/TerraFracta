@@ -65,8 +65,9 @@ export function createOperatorAuditReader(provider?: OperatorAuditProvider, now 
     };
     const expired = () => {
       const elapsed = elapsedRead();
-      return cancellationObserved || parentSignal?.aborted || controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS;
+      return cancellationObserved || parentSignal?.aborted || (!retired && controller.signal.aborted) || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS;
     };
+    let decision: OperatorAuditReadDecision = {kind:"unavailable"};
     try {
       parentSignal?.addEventListener("abort", cancel, { once: true });
       timer = setTimeout(cancel, OPERATOR_AUDIT_TIMEOUT_MS);
@@ -83,7 +84,7 @@ export function createOperatorAuditReader(provider?: OperatorAuditProvider, now 
       const requested = envelope.requested;
       if (requested.runId !== scope.runId || requested.issueId !== scope.issueId ||
           JSON.stringify(requested.cursor) !== JSON.stringify(scope.cursor) || expired()) return held();
-      return envelope.status === "ok" ? { kind: "ok", report: envelope } : { kind: envelope.status };
+      decision = envelope.status === "ok" ? { kind: "ok", report: envelope } : { kind: envelope.status };
     } catch {
       // No errors, source/request bodies or partial records escape a failure.
       return held();
@@ -93,6 +94,9 @@ export function createOperatorAuditReader(provider?: OperatorAuditProvider, now 
       try { parentSignal?.removeEventListener("abort", cancel); } catch { reportFailure(); }
       try { controller.abort(); } catch { reportFailure(); }
     }
+    // Retirement callbacks cannot cross the original caller/time boundary.
+    try { if (expired()) return held(); } catch { return held(); }
+    return decision;
   };
 }
 

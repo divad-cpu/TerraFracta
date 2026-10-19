@@ -12,5 +12,6 @@ export default function CapturedPdfCandidateExample(){
     <h1>Captured PDF candidate example</h1><p>Inspect one complete supplied historical receipt from an invented isolated laboratory. This fixed example accepts no input, opens no PDF and connects to no database. Its development gate is not authentication or a current-work check.</p></header>
     <PdfInitialCandidateReviewView receipt={Buffer.from(fixture.receiptBase64,"base64")} intentJson={fixture.intentJson} expected={fixture.expected} observedAt={fixture.observedAt}/>
     <p><a href="/editorial-preview/pdf-preparation-history">Inspect a separate saved PDF preparation example</a></p>
+    <p><a href="/editorial-preview/pdf-initial-capture-history">Choose a separate saved initial PDF candidate</a></p>
     <p><a href="/editorial-preview">Back to the review desk</a></p></div>;
 }

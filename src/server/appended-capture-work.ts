@@ -1,5 +1,5 @@
 import { prepareAppendedIssueCapture,parseStoredAppendedIssueCapture } from "./appended-issue-capture.ts";
-import { prepareWorkProposalCapture } from "./proposal-work-command.ts";
+import { prepareWorkProposalCapture, captureProposalWorkIdentity } from "./proposal-work-command.ts";
 
 // Pure late binding of already admitted complete association bytes to the
 // established work shape. Identifiers are not credentials or a live lease.
@@ -7,8 +7,8 @@ export const APPENDED_WORK_CAPTURE_SQL="SELECT tf_appended_review.capture_issue_
  Array.from({length:7},(_,i)=>`decode($${i+4}::text,'base64')`).join(",")+")::text AS capture";
 export function prepareAppendedIssueCaptureForWork(work:unknown,bundle:unknown,expected:unknown){
  try{
-  const capture=prepareAppendedIssueCapture(bundle,expected),i=JSON.parse(capture.intentJson);
-  const checked=prepareWorkProposalCapture(work,{captureId:i.capture_id,runId:i.run_id,decisionId:i.decision_id,issueId:i.issue_id,basePublicationId:i.base_publication_id},JSON.parse(capture.bundle.proposalJson));
+  const originalWork=captureProposalWorkIdentity(work),capture=prepareAppendedIssueCapture(bundle,expected),i=JSON.parse(capture.intentJson);
+  const checked=prepareWorkProposalCapture(originalWork,{captureId:i.capture_id,runId:i.run_id,decisionId:i.decision_id,issueId:i.issue_id,basePublicationId:i.base_publication_id},JSON.parse(capture.bundle.proposalJson));
   return Object.freeze({sql:APPENDED_WORK_CAPTURE_SQL,values:Object.freeze([checked.work.runId,checked.work.requestFingerprint,checked.work.workClaimId,...capture.values]),
    work:checked.work,capture,evidenceState:"invented_unexecuted_complete_association_requires_current_outer_work_fence" as const});
  }catch{throw Error("appended_capture_work_unavailable");}

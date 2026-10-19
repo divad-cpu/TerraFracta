@@ -74,6 +74,7 @@ export function createPublicIssueReader(
       cancellationObserved = true;
       rejectCancelled?.();
     };
+    let decision: PublicReadResponseDecision = held();
     try {
       controller.signal.addEventListener("abort", onAbort, { once: true });
       parentSignal?.addEventListener("abort", cancel, { once: true });
@@ -104,7 +105,7 @@ export function createPublicIssueReader(
           after < 0 || after >= DEVELOPMENT_READ_TIMEOUT_MS) return failed();
       // Rejected candidates include expected rights/editorial/head holds;
       // that private outcome alone cannot establish a technical fault.
-      return decidePublicReadResponse(outcome);
+      decision = decidePublicReadResponse(outcome);
     } catch {
       // Provider/candidate failures never disclose errors, private rows or paths.
       return failed();
@@ -117,6 +118,13 @@ export function createPublicIssueReader(
       try { controller.signal.removeEventListener("abort", onAbort); } catch { reportFailure(); }
       try { controller.abort(); } catch { reportFailure(); }
     }
+    // Owned abort is deliberate; caller cancellation and the original monotonic
+    // budget remain binding after all physical retirement callbacks complete.
+    try {
+      const final = elapsedRead();
+      if (cancellationObserved || parentSignal?.aborted || !Number.isFinite(final) || final < 0 || final >= DEVELOPMENT_READ_TIMEOUT_MS) return failed();
+    } catch { return failed(); }
+    return decision;
   };
 }
 

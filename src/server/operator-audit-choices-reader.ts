@@ -61,8 +61,9 @@ export function createOperatorAuditChoicesReader(provider?: OperatorAuditChoices
     };
     const expired = () => {
       const elapsed = elapsedRead();
-      return cancellationObserved || parentSignal?.aborted || controller.signal.aborted || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS;
+      return cancellationObserved || parentSignal?.aborted || (!retired && controller.signal.aborted) || !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= OPERATOR_AUDIT_TIMEOUT_MS;
     };
+    let decision: OperatorAuditChoicesDecision = {kind:"unavailable"};
     try {
       parentSignal?.addEventListener("abort", cancel, { once: true });
       timer = setTimeout(cancel, OPERATOR_AUDIT_TIMEOUT_MS);
@@ -77,7 +78,7 @@ export function createOperatorAuditChoicesReader(provider?: OperatorAuditChoices
       if (size < 2) return held();
       const envelope = operatorAuditChoicesEnvelopeSchema.parse(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size))));
       if (envelope.requestedRunId !== runId || JSON.stringify(envelope.requestedCursor) !== JSON.stringify(cursor) || expired()) return held();
-      return envelope.status === "ok" ? { kind: "ok", report: envelope } : { kind: "changed" };
+      decision = envelope.status === "ok" ? { kind: "ok", report: envelope } : { kind: "changed" };
     } catch { return held(); }
     finally {
       retired = true;
@@ -86,6 +87,9 @@ export function createOperatorAuditChoicesReader(provider?: OperatorAuditChoices
       try { parentSignal?.removeEventListener("abort", cancel); } catch { reportFailure(); }
       try { controller.abort(); } catch { reportFailure(); }
     }
+    // Retirement callbacks cannot cross the original caller/time boundary.
+    try { if (expired()) return held(); } catch { return held(); }
+    return decision;
   };
 }
 

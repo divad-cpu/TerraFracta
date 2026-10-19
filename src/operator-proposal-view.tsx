@@ -4,6 +4,9 @@ import { PolicyEventDraftView } from "./policy-event-draft-view.tsx";
 import { FundingDraftView } from "./funding-draft-view.tsx";
 import { IndicatorDraftView } from "./indicator-draft-view.tsx";
 import { DeliveryDraftView } from "./delivery-draft-view.tsx";
+import { PlannedMilestoneDraftView } from "./planned-milestone-draft-view.tsx";
+import { EvaluationDraftView } from "./evaluation-draft-view.tsx";
+import { EvaluationPreparationBundleView } from "./evaluation-preparation-bundle-view.tsx";
 import { PreparationPacketView } from "./preparation-packet-view.tsx";
 import { capturedScopeDraftContext } from "./server/issue-scope-draft.ts";
 import { statementLabels } from "./issue-display-labels.ts";
@@ -162,7 +165,7 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
   const browse = selected ? proposalBrowseSelection(browseQuery) : null;
   const heldReturn = browse && selected && browse.scope.runId === selected.runId && browse.scope.decisionId === selected.decisionId ? browse.held : null;
   return <div className="content-page"><PageIntro eyebrow="Development only / Private recorded proposal" title="Proposal comparison">
-    <p>Inspect a separately captured proposal and its recorded base. Captured content cannot be edited here. Local scope, responsibility, policy-event, funding, indicator and delivery preparations are unsent; there is no approval, collection or publication control.</p>
+    <p>Inspect a separately captured proposal and its recorded base. Captured content cannot be edited here. Local scope, responsibility, policy-event, funding, indicator, delivery, evaluation and planned-milestone preparations are unsent; there is no approval, collection or publication control.</p>
   </PageIntro><OperatorWorkspaceNavigation active="comparison" context={report ? { runId: report.requested.runId, decisionId: report.requested.decisionId, issueId: report.target.issueId } : selected ? { runId: selected.runId, decisionId: selected.decisionId } : {}} />{report === null || payload === null ? <section className="info-band" role="status"><h2>{labels[held][0]}</h2><p>{labels[held][1]}</p></section> : <>
     <section className="info-band" role="note"><h2>Unverified proposal</h2><p>The proposed wording is private review material. Parsing, storing or displaying it does not approve a source, resolve a conflict or qualify it for publication.</p></section>
     <nav className="current-issue-nav" id="proposal-comparison-sections" tabIndex={-1} aria-label="Sections of this captured comparison">
@@ -177,7 +180,10 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
       {scopeContext && <a href="#proposal-funding-preparation">Unsent funding preparation (expand)</a>}
       {scopeContext && <a href="#proposal-indicator-preparation">Unsent indicator preparation (expand)</a>}
       {scopeContext && <a href="#proposal-delivery-preparation">Unsent delivery preparation (expand)</a>}
+      {scopeContext && <a href="#proposal-planned-milestone-preparation">Unsent planned-milestone preparation (expand)</a>}
+      {scopeContext && <a href="#proposal-evaluation-preparation">Unsent evaluation preparation (expand)</a>}
       {scopeContext && <a href="#proposal-preparation-packet">Keep unsent preparations together (expand)</a>}
+      {scopeContext && <a href="#proposal-evaluation-bundle">Keep evaluation and other preparations together (expand)</a>}
       {changes && <a href="#proposal-changes-heading">Recorded changes</a>}
       <a href="#proposal-base-snapshot">Recorded publication panel</a>
       <a href="#proposal-proposed-snapshot">Proposed content panel</a>
@@ -203,7 +209,10 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
     {scopeContext && <div id="proposal-funding-preparation" tabIndex={-1}><FundingDraftView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {scopeContext && <div id="proposal-indicator-preparation" tabIndex={-1}><IndicatorDraftView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {scopeContext && <div id="proposal-delivery-preparation" tabIndex={-1}><DeliveryDraftView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
+    {scopeContext && <div id="proposal-planned-milestone-preparation" tabIndex={-1}><PlannedMilestoneDraftView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
+    {scopeContext && <div id="proposal-evaluation-preparation" tabIndex={-1}><EvaluationDraftView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {scopeContext && <div id="proposal-preparation-packet" tabIndex={-1}><PreparationPacketView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
+    {scopeContext && <div id="proposal-evaluation-bundle" tabIndex={-1}><EvaluationPreparationBundleView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {changes && <RecordedChanges changes={changes} />}
     <div className="proposal-comparison">{base === null ? <section id="proposal-base-snapshot" tabIndex={-1}><h2>Recorded current publication</h2><p>The witnessed issue head had no publication. This is a checked absence, not a failed read.</p></section> : <>
       <Snapshot snapshot={base.snapshot} name="Recorded current publication" side="base" sourceIndex={sourceIndex!} />

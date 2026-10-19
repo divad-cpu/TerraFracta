@@ -43,7 +43,12 @@ export function createRecordedInitialCaptureHistoryResolver(now=()=>performance.
    // Selector observation uses the same original interval as the full read.
    let v:ReturnType<typeof snapshot>;try{v=snapshot(input);}catch{return {kind:"invalid_scope"};}
    const active=()=>{const age=elapsed();return !signal?.aborted&&Number.isFinite(age)&&age>=0&&age<OPERATOR_AUDIT_TIMEOUT_MS;};
-   const sharedNow=()=>{const age=elapsed();return Number.isFinite(age)&&age>=0&&age<OPERATOR_AUDIT_TIMEOUT_MS?began+age:NaN;};
+   let nestedStarted=false;
+   const sharedNow=()=>{
+    const age=elapsed();if(!Number.isFinite(age)||age<0||age>=OPERATOR_AUDIT_TIMEOUT_MS)return NaN;
+    if(!nestedStarted){nestedStarted=true;return began;}
+    return began+age;
+   };
    if(!active())return {kind:"unavailable"};
    const choices=parseInitialCandidateLookup(v.lookupRaw,v.preparationReportJson,v.preparationExpected,v.lookupObservedAt);
    if(choices.preparation.operationId!==v.preparationId)return {kind:"invalid_scope"};if(!active())return {kind:"unavailable"};

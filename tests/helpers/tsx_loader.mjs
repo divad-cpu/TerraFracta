@@ -6,9 +6,14 @@ import ts from "typescript";
 // substituted by callers. This is not framework routing, hydration or Browser.
 export function loadTsx(file, intercept = () => undefined, processValue = { env: { NODE_ENV: "development" } }) {
   const url = file instanceof URL ? file : new URL(file), exports = {}, native = createRequire(url);
-  const compiled = ts.transpileModule(readFileSync(url, "utf8"), { compilerOptions: {
+  const result = ts.transpileModule(readFileSync(url, "utf8"), { reportDiagnostics: true, compilerOptions: {
     jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
-  } }).outputText;
+  } });
+  // Syntactic diagnostics must refuse before emitted code or imported seams run.
+  // This is deliberately not semantic type checking or Browser qualification.
+  if (result.diagnostics?.some(diagnostic => diagnostic.category === ts.DiagnosticCategory.Error))
+    throw new SyntaxError("TSX fixture compilation failed.");
+  const compiled = result.outputText;
   new Function("require", "exports", "process", compiled)(name => {
     const replacement = intercept(name); if (replacement !== undefined) return replacement;
     if (name.startsWith(".")) {

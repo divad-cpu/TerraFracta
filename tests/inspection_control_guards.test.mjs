@@ -17,6 +17,18 @@ const held = () => renderToStaticMarkup(createElement(Held, {
   decision: { kind: "ok", report: heldReport() }, selection: heldScope(),
 }));
 
+const joinedPreparationButtons = ["Clear reference finder", "Show all reference choices",
+    "Reopen scope preparation", "Review scope draft", "Clear scope draft", "Show all responsibility reference choices", "Add responsibility entry",
+    "Review responsibility draft", "Clear responsibility draft", "Reopen responsibility preparation",
+    "Show all event reference choices", "Add event entry", "Inspect unsent event draft", "Clear event draft", "Reopen event preparation",
+    "Show all funding reference choices", "Add funding entry", "Inspect unsent funding draft", "Clear funding draft", "Reopen funding preparation",
+    "Show all indicator reference choices", "Add indicator entry", "Inspect unsent indicator draft", "Clear indicator draft", "Reopen indicator preparation",
+    "Show all delivery reference choices", "Add delivery entry", "Inspect unsent delivery draft", "Clear delivery draft", "Reopen delivery preparation",
+    "Add milestone entry", "Inspect unsent milestone draft", "Clear milestone draft", "Reopen milestone preparation",
+    "Add evaluation entry", "Review evaluation draft", "Clear evaluation draft", "Reopen evaluation preparation",
+    "Inspect combined preparation packet", "Clear preparation packet", "Read saved preparation packet", "Reopen preparation packet",
+    "Review separate evaluation bundle", "Clear separate evaluation bundle", "Reopen separate evaluation bundle"];
+
 test("actual checked proposals keep captured content immutable and local preparation unadmitted in server markup", () => {
   assertUnsentProposalControls(proposal());
 });
@@ -32,18 +44,11 @@ test("proposal guard detects injected enabled, submit and foreign preparation co
   }
 });
 
-test("all six joined private worksheets and local packet File control remain unadmitted in actual server markup", () => {
+test("all eight private worksheets and separate packet File controls remain unadmitted in actual server markup", () => {
   const html = renderToStaticMarkup(createElement(Proposal, {
     decision: { kind: "ok", report: packetReport() }, selection: proposalScope(),
   }));
-  assertUnsentProposalControls(html, ["Clear reference finder", "Show all reference choices",
-    "Reopen scope preparation", "Review scope draft", "Clear scope draft", "Show all responsibility reference choices", "Add responsibility entry",
-    "Review responsibility draft", "Clear responsibility draft", "Reopen responsibility preparation",
-    "Show all event reference choices", "Add event entry", "Inspect unsent event draft", "Clear event draft", "Reopen event preparation",
-    "Show all funding reference choices", "Add funding entry", "Inspect unsent funding draft", "Clear funding draft", "Reopen funding preparation",
-    "Show all indicator reference choices", "Add indicator entry", "Inspect unsent indicator draft", "Clear indicator draft", "Reopen indicator preparation",
-    "Show all delivery reference choices", "Add delivery entry", "Inspect unsent delivery draft", "Clear delivery draft", "Reopen delivery preparation",
-    "Inspect combined preparation packet", "Clear preparation packet", "Read saved preparation packet", "Reopen preparation packet"]);
+  assertUnsentProposalControls(html, joinedPreparationButtons);
   assert.match(html, /type="file"[^>]*disabled=""/);
   assert.doesNotMatch(html, />Download private preparation packet<|readOnly=""/);
 });
@@ -61,5 +66,19 @@ test("held guard detects write methods, foreign actions and per-button write ove
       original.replace('</form>', `<input type="${type}" value="Approve publication"/></form>`))]) {
     assert.notEqual(changed, original);
     assert.throws(() => assertReadOnlyHeldForms(changed), assert.AssertionError);
+  }
+});
+
+// The additional controls stay under the exact existing no-submit/no-write guard.
+test("new milestone evaluation and bundle buttons cannot become enabled or submitting in server markup", () => {
+  const html = renderToStaticMarkup(createElement(Proposal, { decision: { kind: "ok", report: packetReport() }, selection: proposalScope() }));
+  assertUnsentProposalControls(html, joinedPreparationButtons);
+  for (const label of ["Add milestone entry", "Inspect unsent milestone draft", "Clear milestone draft", "Reopen milestone preparation",
+    "Add evaluation entry", "Review evaluation draft", "Clear evaluation draft", "Reopen evaluation preparation",
+    "Review separate evaluation bundle", "Clear separate evaluation bundle", "Reopen separate evaluation bundle"]) {
+    const tag = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(match => match[0]).find(value => value.endsWith(`>${label}</button>`));
+    assert.ok(tag, label); assert.match(tag, / disabled=""/); assert.match(tag, /type="button"/);
+    for (const changed of [tag.replace(' disabled=""', ''), tag.replace('type="button"', 'type="submit"')])
+      assert.throws(() => assertUnsentProposalControls(html.replace(tag, changed), joinedPreparationButtons), assert.AssertionError, label);
   }
 });

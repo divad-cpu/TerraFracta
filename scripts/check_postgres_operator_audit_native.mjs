@@ -333,7 +333,8 @@ async function selectedProposal(expected, requested=proposalScope){
    'Reopen scope preparation','Review scope draft','Clear scope draft','Show all responsibility reference choices','Add responsibility entry',
    'Review responsibility draft','Clear responsibility draft','Reopen responsibility preparation',
    'Show all indicator reference choices','Add indicator entry','Inspect unsent indicator draft','Clear indicator draft','Reopen indicator preparation',
-   'Inspect combined preparation packet','Clear preparation packet','Read saved preparation packet','Reopen preparation packet']);
+   'Inspect combined preparation packet','Clear preparation packet','Read saved preparation packet','Reopen preparation packet',
+   'Review separate evaluation bundle','Clear separate evaluation bundle','Reopen separate evaluation bundle']);
   for(const [,attributes] of buttons){
    assert.match(attributes,/(?:^|\s)type="button"(?=\s|$)/);
    assert.match(attributes,/(?:^|\s)disabled=""(?=\s|$)/);

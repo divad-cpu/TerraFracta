@@ -24,10 +24,10 @@ const joinedPreparationButtons = ["Clear reference finder", "Show all reference 
     "Show all funding reference choices", "Add funding entry", "Inspect unsent funding draft", "Clear funding draft", "Reopen funding preparation",
     "Show all indicator reference choices", "Add indicator entry", "Inspect unsent indicator draft", "Clear indicator draft", "Reopen indicator preparation",
     "Show all delivery reference choices", "Add delivery entry", "Inspect unsent delivery draft", "Clear delivery draft", "Reopen delivery preparation",
-    "Add milestone entry", "Inspect unsent milestone draft", "Clear milestone draft", "Reopen milestone preparation",
-    "Add evaluation entry", "Review evaluation draft", "Clear evaluation draft", "Reopen evaluation preparation",
+    "Show all milestone reference choices", "Add milestone entry", "Inspect unsent milestone draft", "Clear milestone draft", "Reopen milestone preparation",
+    "Show all evaluation reference choices", "Add evaluation entry", "Review evaluation draft", "Clear evaluation draft", "Reopen evaluation preparation",
     "Inspect combined preparation packet", "Clear preparation packet", "Read saved preparation packet", "Reopen preparation packet",
-    "Review separate evaluation bundle", "Clear separate evaluation bundle", "Reopen separate evaluation bundle"];
+    "Review separate evaluation bundle", "Clear separate evaluation bundle", "Reopen separate evaluation bundle", "Inspect preparations together", "Clear preparation overview"];
 
 test("actual checked proposals keep captured content immutable and local preparation unadmitted in server markup", () => {
   assertUnsentProposalControls(proposal());
@@ -35,7 +35,7 @@ test("actual checked proposals keep captured content immutable and local prepara
 
 test("proposal guard detects injected enabled, submit and foreign preparation controls", () => {
   const original = proposal();
-  for (const changed of [original.replace('disabled=""', ""),
+  for (const changed of [original.replace(/(<details class="issue-scope-preparation"[\s\S]*?) disabled=""/, "$1"),
     original.replace(/(<button\b[^>]*?) disabled=""/, "$1"),
     original.replace('type="button"', 'type="submit"'),
     original + '<button type="button" disabled="">Approve publication</button>']) {
@@ -73,9 +73,9 @@ test("held guard detects write methods, foreign actions and per-button write ove
 test("new milestone evaluation and bundle buttons cannot become enabled or submitting in server markup", () => {
   const html = renderToStaticMarkup(createElement(Proposal, { decision: { kind: "ok", report: packetReport() }, selection: proposalScope() }));
   assertUnsentProposalControls(html, joinedPreparationButtons);
-  for (const label of ["Add milestone entry", "Inspect unsent milestone draft", "Clear milestone draft", "Reopen milestone preparation",
-    "Add evaluation entry", "Review evaluation draft", "Clear evaluation draft", "Reopen evaluation preparation",
-    "Review separate evaluation bundle", "Clear separate evaluation bundle", "Reopen separate evaluation bundle"]) {
+  for (const label of ["Show all milestone reference choices", "Add milestone entry", "Inspect unsent milestone draft", "Clear milestone draft", "Reopen milestone preparation",
+    "Show all evaluation reference choices", "Add evaluation entry", "Review evaluation draft", "Clear evaluation draft", "Reopen evaluation preparation",
+    "Review separate evaluation bundle", "Clear separate evaluation bundle", "Reopen separate evaluation bundle", "Inspect preparations together", "Clear preparation overview"]) {
     const tag = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(match => match[0]).find(value => value.endsWith(`>${label}</button>`));
     assert.ok(tag, label); assert.match(tag, / disabled=""/); assert.match(tag, /type="button"/);
     for (const changed of [tag.replace(' disabled=""', ''), tag.replace('type="button"', 'type="submit"')])

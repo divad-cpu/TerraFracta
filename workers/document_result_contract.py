@@ -12,9 +12,11 @@ import json
 from re import fullmatch
 from urllib.parse import urlsplit
 
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
+from workers.feed_discovery import FeedReceipt
 from workers.closed_pair_channel import _json as strict_json
 from workers.document_passage_binding import (
-    PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,BoundDocumentPassages,bind_document_passages,
+    PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,DocumentByteSpan,BoundDocumentPassages,bind_document_passages,
 )
 from workers.feed_postgres_contract import (
     COMMIT_MARKER,HEAD,MAX_CAPTURE_STATEMENT,MAX_CAPTURE_OUTPUT,InventedPgCapture,
@@ -57,9 +59,9 @@ class InventedDocumentResult:
     canonical_input: bytes = field(repr=False)
 
     def statement(self):
-        _recheck(self)
-        feed_raw=base64.b64encode(self.feed_capture.raw).decode('ascii')
-        sql=HEAD+"set time zone 'UTC';begin;select tf_feed_rehearsal.complete_document_result("+_literal(self.canonical_input.decode('utf8'))+"::jsonb,decode("+_literal(feed_raw)+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        checked = _recheck(self)
+        feed_raw=base64.b64encode(checked.feed_capture.raw).decode('ascii')
+        sql=HEAD+"set time zone 'UTC';begin;select tf_feed_rehearsal.complete_document_result("+_literal(checked.canonical_input.decode('utf8'))+"::jsonb,decode("+_literal(feed_raw)+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
         if len(sql.encode('utf8'))>MAX_CAPTURE_STATEMENT:raise DocumentResultContractError('invented_document_result_input_limit')
         return sql
 
@@ -75,8 +77,19 @@ class StoredInventedDocumentResult:
     evidence_state: str = 'invented_document_result_and_outcome_commit_only'
 
 
+def _snapshot_document_values(*values):
+    # Copy the whole parent context before any caller UTC normalization hook.
+    return thaw_input(freeze_input(values, (InventedDocumentResult, InventedPgCapture,
+        FeedReceipt, PlainDocumentReceipt, DocumentPassageBinding, DocumentSpanMap,
+        DocumentByteSpan, FeedDocumentAssociation)))
+
+
 def _recheck(expected):
     if type(expected) is not InventedDocumentResult or type(expected.canonical_input) is not bytes:raise DocumentResultContractError('invented_document_result_context_invalid')
+    try:
+        expected, = _snapshot_document_values(expected)
+    except Exception:
+        raise DocumentResultContractError('invented_document_result_context_invalid') from None
     checked=prepare_invented_document_result(expected.feed_capture,expected.capture_receipt,
         document_raw=expected.document_raw,document=expected.document,binding=expected.binding,mapping=expected.mapping,
         association=expected.association,operation_id=expected.operation_id,expected_revision=expected.expected_revision,
@@ -100,6 +113,13 @@ def _stored_shape(payload,page,raw_bytes):
 def prepare_invented_document_result(feed_capture,capture_receipt,*,document_raw,document,binding,mapping,association,
         operation_id,expected_revision,observed_at):
     try:
+        try:
+            (feed_capture, capture_receipt, document_raw, document, binding, mapping,
+             association, operation_id, expected_revision, observed_at) = _snapshot_document_values(
+                feed_capture, capture_receipt, document_raw, document, binding, mapping,
+                association, operation_id, expected_revision, observed_at)
+        except Exception:
+            raise DocumentResultContractError('invented_document_result_input_invalid') from None
         if (not _utc(observed_at) or type(association) is not FeedDocumentAssociation or not _uuid(operation_id)
                 or type(expected_revision) is not int or not 0<=expected_revision<8):raise ValueError
         page=parse_invented_pg_readback(capture_receipt,feed_capture,observed_at=observed_at)
@@ -136,14 +156,18 @@ def prepare_invented_document_result(feed_capture,capture_receipt,*,document_raw
 
 
 def invented_document_result_read_statement(expected):
-    _recheck(expected)
+    expected = _recheck(expected)
     raw=base64.b64encode(expected.document_raw).decode('ascii');feed=base64.b64encode(expected.feed_capture.raw).decode('ascii')
     return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_feed_rehearsal.document_result_receipt("+_literal(expected.operation_id)+"::uuid,decode("+_literal(raw)+",'base64'),decode("+_literal(feed)+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
 
 
 def parse_stored_invented_document_result(raw,expected,*,observed_at):
     try:
-        _recheck(expected)
+        try:
+            raw, expected, observed_at = _snapshot_document_values(raw, expected, observed_at)
+        except Exception:
+            raise DocumentResultContractError('invented_document_result_readback_invalid') from None
+        expected = _recheck(expected)
         if type(raw) is not bytes or not 1<=len(raw)<=MAX_CAPTURE_OUTPUT or not _utc(observed_at) or observed_at<expected.observed_at:
             raise ValueError
         value=strict_json(raw);p=strict_json(expected.canonical_input)

@@ -29,7 +29,7 @@ test("actual development route constructs one invented snapshot and is dynamic a
   assert.match(html, /operational source-health connection remains unconfigured/);
   assert.match(html, /href="\/editorial-preview\/exceptions"/);
   assert.match(html, /Entirely invented/); assert.doesNotMatch(html, /<form|<input/);
-  assert.equal((html.match(/<select/g) ?? []).length, 2);
+  assert.equal((html.match(/<select/g) ?? []).length, 4);
   assert.match(html, /Clear display filters/);
 });
 

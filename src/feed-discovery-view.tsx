@@ -32,6 +32,15 @@ export function FeedDiscoveryView({ input }: { input: unknown }) {
     {report.not_reobserved.length === 0 ? <p>No such leads in this supplied comparison. This does not establish complete historical coverage.</p> : <ul>{report.not_reobserved.map(row => <li key={row.previous.entry_id}>
       <bdi>{row.previous.title}</bdi> — <code>{row.previous.entry_id}</code>, earlier <code>{row.previous.locator}</code>.
       {row.reason_code === "held_in_current_window" ? " Its current entry is held; no absence conclusion is possible." : " Not in the current feed window; this does not establish withdrawal or deletion."}
+      <details><summary>Inspect earlier metadata for this lead</summary>
+        <dl><dt>Earlier entry identity / locator</dt><dd><code>{row.previous.entry_id}</code> / <code>{row.previous.locator}</code></dd>
+          <dt>Earlier version / hash</dt><dd><code>{row.previous.source_version_id}</code> / <code>{row.previous.source_content_sha256}</code></dd>
+          <dt>Earlier document address (not opened)</dt><dd><bdi>{row.previous.url}</bdi></dd>
+          <dt>Feed publication date text (unparsed)</dt><dd><bdi>{row.previous.published_text ?? "Not supplied"}</bdi></dd>
+          <dt>Feed modification date text (unparsed)</dt><dd><bdi>{row.previous.updated_text ?? "Not supplied"}</bdi></dd>
+          {report.previous !== null && <><dt>Earlier supplied window retrieval</dt><dd>{date(report.previous.source.retrieved_at)}</dd></>}
+        </dl>
+      </details>
     </li>)}</ul>}
     <p>No source approval, retention or reuse permission, model dispatch, factual support, checkpoint, publication or public-content change follows from this report. Supplied metadata and dates remain untrusted; retained raw bytes and their provenance require separate verification.</p>
   </section>;

@@ -1,3 +1,5 @@
+import { recordedSourceLanguageLocations } from "./recorded-source-language-locations.ts";
+import { RecordedSourceLanguageFinder } from "./recorded-source-language-finder-view.tsx";
 import { IssueScopeDraftView } from "./issue-scope-draft-view.tsx";
 import { ResponsibilityDraftView } from "./responsibility-draft-view.tsx";
 import { PolicyEventDraftView } from "./policy-event-draft-view.tsx";
@@ -5,6 +7,7 @@ import { FundingDraftView } from "./funding-draft-view.tsx";
 import { IndicatorDraftView } from "./indicator-draft-view.tsx";
 import { DeliveryDraftView } from "./delivery-draft-view.tsx";
 import { PlannedMilestoneDraftView } from "./planned-milestone-draft-view.tsx";
+import { CompletePreparationOrganizerView } from "./complete-preparation-organizer-view.tsx";
 import { EvaluationDraftView } from "./evaluation-draft-view.tsx";
 import { EvaluationPreparationBundleView } from "./evaluation-preparation-bundle-view.tsx";
 import { PreparationPacketView } from "./preparation-packet-view.tsx";
@@ -162,6 +165,7 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
   const sourceIndex = report && payload ? recordedProposalSourceIndex(base?.snapshot ?? null, payload.snapshot) : null;
   const sourceGroups = new Map(sourceIndex?.groups.map(group => [group.sourceVersionId.toLowerCase(), group]) ?? []);
   const scopeContext = report ? capturedScopeDraftContext(report) : null;
+  const languageLocations = report && sourceIndex ? recordedSourceLanguageLocations(report.sourceReceipts, sourceIndex) : null;
   const browse = selected ? proposalBrowseSelection(browseQuery) : null;
   const heldReturn = browse && selected && browse.scope.runId === selected.runId && browse.scope.decisionId === selected.decisionId ? browse.held : null;
   return <div className="content-page"><PageIntro eyebrow="Development only / Private recorded proposal" title="Proposal comparison">
@@ -184,6 +188,7 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
       {scopeContext && <a href="#proposal-evaluation-preparation">Unsent evaluation preparation (expand)</a>}
       {scopeContext && <a href="#proposal-preparation-packet">Keep unsent preparations together (expand)</a>}
       {scopeContext && <a href="#proposal-evaluation-bundle">Keep evaluation and other preparations together (expand)</a>}
+      {scopeContext && <a href="#proposal-complete-preparation">Read preparations with planned milestones (expand)</a>}
       {changes && <a href="#proposal-changes-heading">Recorded changes</a>}
       <a href="#proposal-base-snapshot">Recorded publication panel</a>
       <a href="#proposal-proposed-snapshot">Proposed content panel</a>
@@ -198,6 +203,7 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
     <section className="info-band" id="proposal-coverage" tabIndex={-1}><h2>Evidence and translation coverage</h2>
       <p>{payload.conflictCoverage === "not_recorded" ? "Conflict-search coverage was not recorded." : "Some conflict evidence was captured; completeness was not established."} Missing conflicting evidence is not evidence of agreement.</p>
       <p>Display language: {payload.translation.displayLanguage}. Translation: {payload.translation.status === "not_required" ? "Recorded source languages match the display language; no translation is indicated." : payload.translation.status === "unreviewed" ? "Unreviewed. No accepted translation receipt is recorded." : "Not recorded. Translation quality is unknown."}</p>
+      {languageLocations && scopeContext && <RecordedSourceLanguageFinder key={scopeContext.binding.comparisonSha256} locations={languageLocations} comparisonKey={scopeContext.binding.comparisonSha256} />}
       <ul>{report.sourceReceipts.map((e, index) => <li key={e.sourceVersionId} id={`proposal-source-receipt-${index + 1}`}>Source <code>{e.sourceVersionId}</code>: {e.languageCode ?? "Language not recorded"}. Captured content <code>{e.contentSha256}</code>; retrieved <time dateTime={e.retrievedAt}>{e.retrievedAt}</time>. <a href={`#${sourceGroups.get(e.sourceVersionId.toLowerCase())!.anchor}`}>Inspect recorded uses in the comparison</a></li>)}</ul>
     </section>
     {sourceIndex && scopeContext && <div id="proposal-reference-finder" tabIndex={-1}><RecordedReferenceFinder key={scopeContext.binding.comparisonSha256} entries={recordedReferenceEntries(sourceIndex)} /></div>}
@@ -213,6 +219,7 @@ export function ProposalComparisonView({ decision, selection, browseQuery }: { d
     {scopeContext && <div id="proposal-evaluation-preparation" tabIndex={-1}><EvaluationDraftView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {scopeContext && <div id="proposal-preparation-packet" tabIndex={-1}><PreparationPacketView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {scopeContext && <div id="proposal-evaluation-bundle" tabIndex={-1}><EvaluationPreparationBundleView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
+    {scopeContext && <div id="proposal-complete-preparation" tabIndex={-1}><CompletePreparationOrganizerView key={scopeContext.binding.comparisonSha256} context={scopeContext} /></div>}
     {changes && <RecordedChanges changes={changes} />}
     <div className="proposal-comparison">{base === null ? <section id="proposal-base-snapshot" tabIndex={-1}><h2>Recorded current publication</h2><p>The witnessed issue head had no publication. This is a checked absence, not a failed read.</p></section> : <>
       <Snapshot snapshot={base.snapshot} name="Recorded current publication" side="base" sourceIndex={sourceIndex!} />

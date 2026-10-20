@@ -9,7 +9,8 @@ from datetime import datetime
 from hashlib import sha256
 import json
 from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction
-from workers.detached_proposal_custody import DetachedPreparationIntent,intent_metadata
+from workers.detached_proposal_custody import DetachedPreparationIntent,intent_metadata,_DETACHED_RECORDS,_detached_operand
+from workers.dispatch_input_snapshot import freeze_input,thaw_input,_namespace
 from workers.private_extraction_held_proposal import _json
 from workers.closed_pair_channel import _json as strict_json
 from workers.feed_postgres_contract import HEAD,COMMIT_MARKER,_uuid,_utc,_time,_parse_time
@@ -54,8 +55,27 @@ class DetachedProposalInventoryObservation:
     evidence_state: str='invented_historical_metadata_explicit_independent_intent_required'
 
 
+
+_INVENTORY_RECORDS = _DETACHED_RECORDS + (DetachedProposalInventoryRequest,
+    HistoricalDetachedProposalCandidate, DetachedProposalInventoryObservation)
+
+
+def _snapshot_inventory_values(*values):
+    # Inventory consumes the original extraction receipt/request, reparsing its
+    # derived result. Preserve that contract while owning every consumed field.
+    def operand(value):
+        if type(value) is DetachedProposalInventoryRequest:
+            ns, _ = _namespace(value, DetachedProposalInventoryRequest)
+            return DetachedProposalInventoryRequest(_detached_operand(ns['extraction']),
+                ns['canonical_scope'], ns['observed_at'])
+        return _detached_operand(value)
+    operands = tuple(operand(value) for value in values)
+    return thaw_input(freeze_input(operands, _INVENTORY_RECORDS))
+
+
 def prepare_detached_proposal_inventory(extraction,*,observed_at):
     try:
+        extraction, observed_at = _snapshot_inventory_values(extraction, observed_at)
         if type(extraction) is not ReopenedPrivateExtractionResult or not _utc(observed_at):raise ValueError
         checked=parse_reopened_private_extraction(extraction.full_receipt,extraction.request,observed_at=extraction.observed_at)
         if observed_at<checked.observed_at:raise ValueError
@@ -68,6 +88,7 @@ def prepare_detached_proposal_inventory(extraction,*,observed_at):
 
 
 def _recheck(expected):
+    expected, = _snapshot_inventory_values(expected)
     if type(expected) is not DetachedProposalInventoryRequest or type(expected.canonical_scope) is not bytes or not 1<=len(expected.canonical_scope)<=4096:raise ValueError
     rebuilt=prepare_detached_proposal_inventory(expected.extraction,observed_at=expected.observed_at)
     if rebuilt.canonical_scope!=expected.canonical_scope:raise ValueError
@@ -76,6 +97,7 @@ def _recheck(expected):
 
 def parse_detached_proposal_inventory(raw,expected,*,observed_at):
     try:
+        raw, expected, observed_at = _snapshot_inventory_values(raw, expected, observed_at)
         checked=_recheck(expected)
         if type(raw) is not bytes or not 1<=len(raw)<=MAX_INVENTORY_OUTPUT or not _utc(observed_at) or observed_at<checked.observed_at:raise ValueError
         value=strict_json(raw);scope=strict_json(checked.canonical_scope)

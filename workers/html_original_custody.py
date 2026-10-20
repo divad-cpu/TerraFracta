@@ -12,7 +12,8 @@ import json
 import re
 from urllib.parse import urlsplit
 
-from workers.html_passage_binding import HtmlDocumentReceipt,HtmlPassageBinding,HtmlSelectionMap,BoundHtmlPassages,bind_html_passages,MAX_HTML_BYTES
+from workers.html_passage_binding import HtmlDocumentReceipt,HtmlPassageBinding,HtmlSelectionMap,HtmlElementSelection,BoundHtmlPassages,bind_html_passages,MAX_HTML_BYTES
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.closed_pair_channel import _json as strict_json
 from workers.feed_postgres_contract import HEAD,COMMIT_MARKER,MAX_CAPTURE_OUTPUT,MAX_CAPTURE_STATEMENT,_uuid,_utc,_time,_parse_time
 from workers.pair_native_sql import _literal
@@ -79,10 +80,23 @@ class HtmlOriginalReopenExpected:
     stored_at: datetime
     observed_at: datetime
     def statement(self):
-        checked=prepare_html_original_reopen(intent=self.intent,document=self.document,binding=self.binding,mapping=self.mapping,
-            artifact_id=self.artifact_id,stored_at=self.stored_at,observed_at=self.observed_at)
-        if checked!=self:raise HtmlOriginalCustodyError('html_original_reopen_unavailable')
-        return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_html_rehearsal.original_receipt("+_literal(self.intent.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        try:
+            expected, = _snapshot_original_values(self)
+        except Exception:
+            raise HtmlOriginalCustodyError('html_original_reopen_unavailable') from None
+        checked=prepare_html_original_reopen(intent=expected.intent,document=expected.document,binding=expected.binding,mapping=expected.mapping,
+            artifact_id=expected.artifact_id,stored_at=expected.stored_at,observed_at=expected.observed_at)
+        if checked!=expected:raise HtmlOriginalCustodyError('html_original_reopen_unavailable')
+        return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_html_rehearsal.original_receipt("+_literal(checked.intent.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+
+
+_ORIGINAL_ENTRY_RECORDS = (HtmlOriginalIntent, PreparedHtmlOriginal,
+    HtmlOriginalReopenExpected, HtmlDocumentReceipt, HtmlPassageBinding,
+    HtmlSelectionMap, HtmlElementSelection)
+
+
+def _snapshot_original_values(*values):
+    return thaw_input(freeze_input(values, _ORIGINAL_ENTRY_RECORDS))
 
 
 def _document(document):return {**asdict(document),'retrieved_at':_time(document.retrieved_at)}
@@ -130,6 +144,11 @@ def _receipt_shape(raw,metadata,operation):
 
 def prepare_html_original(raw,document,*,binding,mapping,operation_id,prepared_at,observed_at):
     try:
+        try:
+            raw, document, binding, mapping, operation_id, prepared_at, observed_at = _snapshot_original_values(
+                raw, document, binding, mapping, operation_id, prepared_at, observed_at)
+        except Exception:
+            raise HtmlOriginalCustodyError('html_original_input_unavailable') from None
         metadata,_=_metadata(raw,document,binding,mapping,operation_id,prepared_at,observed_at)
         if len(metadata)>MAX_HTML_METADATA_BYTES or len(json.dumps(_receipt_shape(raw,metadata,operation_id)).encode())+RECEIPT_MARGIN>MAX_CAPTURE_OUTPUT:raise ValueError
         # Both operands are base64, so they cannot expand through SQL quote escapes.
@@ -142,6 +161,10 @@ def prepare_html_original(raw,document,*,binding,mapping,operation_id,prepared_a
 def _recheck(expected):
     try:
         if type(expected) is not PreparedHtmlOriginal:raise ValueError
+        try:
+            expected, = _snapshot_original_values(expected)
+        except Exception:
+            raise HtmlOriginalCustodyError('html_original_input_unavailable') from None
         _intent(expected.intent)
         checked=prepare_html_original(expected.raw,expected.document,binding=expected.binding,mapping=expected.mapping,
             operation_id=expected.intent.operation_id,prepared_at=expected.intent.prepared_at,observed_at=expected.observed_at)
@@ -171,6 +194,10 @@ def _read_receipt(raw,intent,document,binding,mapping,observed_at):
 
 def parse_stored_html_original(raw,expected,*,observed_at):
     try:
+        try:
+            raw, expected, observed_at = _snapshot_original_values(raw, expected, observed_at)
+        except Exception:
+            raise HtmlOriginalCustodyError('html_original_receipt_unavailable') from None
         expected=_recheck(expected)
         if not _utc(observed_at) or observed_at<expected.observed_at:raise ValueError
         result=_read_receipt(raw,expected.intent,expected.document,expected.binding,expected.mapping,observed_at)
@@ -182,6 +209,11 @@ def parse_stored_html_original(raw,expected,*,observed_at):
 
 def prepare_html_original_reopen(*,intent,document,binding,mapping,artifact_id,stored_at,observed_at):
     try:
+        try:
+            intent, document, binding, mapping, artifact_id, stored_at, observed_at = _snapshot_original_values(
+                intent, document, binding, mapping, artifact_id, stored_at, observed_at)
+        except Exception:
+            raise HtmlOriginalCustodyError('html_original_reopen_unavailable') from None
         value=_intent(intent);_scope(document,binding,mapping)
         if (not _uuid(artifact_id) or not _utc(stored_at) or not _utc(observed_at)
                 or not document.retrieved_at<=intent.prepared_at<=stored_at<=observed_at
@@ -196,6 +228,10 @@ def prepare_html_original_reopen(*,intent,document,binding,mapping,artifact_id,s
 
 def reopen_html_original(raw,expected,*,observed_at):
     try:
+        try:
+            raw, expected, observed_at = _snapshot_original_values(raw, expected, observed_at)
+        except Exception:
+            raise HtmlOriginalCustodyError('html_original_reopen_unavailable') from None
         if type(expected) is not HtmlOriginalReopenExpected:raise ValueError
         expected.statement()
         if not _utc(observed_at) or observed_at<expected.observed_at:raise ValueError

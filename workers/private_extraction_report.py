@@ -7,7 +7,7 @@ conflict assessment. No query, file, provider, source or approval operation.
 from dataclasses import asdict
 from hashlib import sha256
 import json
-from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction
+from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction,_snapshot_reopen_values
 from workers.reopened_document_change import prepare_reopened_document_change
 from workers.document_passage_comparison import compare_document_passages
 from workers.feed_postgres_contract import _time
@@ -28,6 +28,10 @@ def _source(reopened):
 def private_extraction_review_report(reopened):
     """No trimming or partial report on invalid/mutated/oversized evidence."""
     try:
+        try:
+            reopened, = _snapshot_reopen_values(reopened)
+        except Exception:
+            raise PrivateExtractionReportError('private_extraction_review_report_unavailable') from None
         if type(reopened) is not ReopenedPrivateExtractionResult:raise ValueError
         checked=parse_reopened_private_extraction(reopened.full_receipt,reopened.request,observed_at=reopened.observed_at)
         if checked!=reopened:raise ValueError

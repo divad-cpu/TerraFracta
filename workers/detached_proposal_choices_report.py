@@ -1,7 +1,7 @@
 """Passive metadata choices projection; original pre-write intent stays separate."""
 from hashlib import sha256
 import json
-from workers.detached_proposal_inventory import parse_detached_proposal_inventory
+from workers.detached_proposal_inventory import parse_detached_proposal_inventory,_snapshot_inventory_values
 from workers.feed_postgres_contract import _time
 MAX_CHOICES_REPORT_BYTES=98304
 
@@ -11,6 +11,7 @@ class DetachedProposalChoicesReportError(ValueError):pass
 
 def detached_proposal_choices_report(raw,expected,*,observed_at):
     try:
+        raw, expected, observed_at = _snapshot_inventory_values(raw, expected, observed_at)
         checked=parse_detached_proposal_inventory(raw,expected,observed_at=observed_at)
         artifact=checked.request.extraction
         value=dict(schema_version=1,kind='invented_detached_preparation_choices',review_state='historical_metadata_only',

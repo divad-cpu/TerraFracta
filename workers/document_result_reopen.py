@@ -8,12 +8,13 @@ from dataclasses import dataclass,asdict,field
 from datetime import datetime
 import base64
 import json
-from workers.feed_capture_reopen import ReopenedCapture,confirm_reopened_page
+from workers.feed_capture_reopen import ReopenedCapture,confirm_reopened_page,_REOPEN_INPUT_RECORDS
 from workers.feed_postgres_processing import parse_invented_pg_item_history
-from workers.document_passage_binding import PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,bind_document_passages,MAX_DOCUMENT_BYTES
+from workers.document_passage_binding import PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,DocumentByteSpan,bind_document_passages,MAX_DOCUMENT_BYTES
 from workers.document_result_contract import (FeedDocumentAssociation,InventedDocumentResult,prepare_invented_document_result,parse_stored_invented_document_result)
 from workers.feed_postgres_contract import HEAD,COMMIT_MARKER,MAX_CAPTURE_OUTPUT,_utc,_time,_parse_time,_uuid
 from workers.pair_native_sql import _literal
+from workers.dispatch_input_snapshot import freeze_input,thaw_input
 from workers.closed_pair_channel import _json as strict_json
 
 class DocumentReopenError(ValueError):pass
@@ -32,10 +33,14 @@ class DocumentReopenRequest:
  canonical_input: bytes=field(repr=False)
 
  def statement(self):
-  if type(self.canonical_input) is not bytes:raise DocumentReopenError('document_reopen_input_invalid')
-  checked=prepare_document_reopen(self.feed,self.page_receipt,self.history_raw,binding=self.binding,mapping=self.mapping,association=self.association,observed_at=self.observed_at)
-  if checked!=self:raise DocumentReopenError('document_reopen_input_invalid')
-  sql=HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_document_reopen.original("+_literal(self.canonical_input.decode())+"::jsonb);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+  try:
+   expected, = _snapshot_document_reopen_inputs(self)
+  except Exception:
+   raise DocumentReopenError('document_reopen_input_invalid') from None
+  if type(expected.canonical_input) is not bytes:raise DocumentReopenError('document_reopen_input_invalid')
+  checked=prepare_document_reopen(expected.feed,expected.page_receipt,expected.history_raw,binding=expected.binding,mapping=expected.mapping,association=expected.association,observed_at=expected.observed_at)
+  if checked!=expected:raise DocumentReopenError('document_reopen_input_invalid')
+  sql=HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_document_reopen.original("+_literal(checked.canonical_input.decode())+"::jsonb);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
   if len(sql.encode())>32768:raise DocumentReopenError('document_reopen_statement_limit')
   return sql
 
@@ -50,6 +55,15 @@ class ReopenedDocumentResult:
  evidence_state: str='invented_document_original_reopened_full_result_readback_still_required'
 
 
+_DOCUMENT_REOPEN_RECORDS = _REOPEN_INPUT_RECORDS + (DocumentReopenRequest,
+ ReopenedDocumentResult,PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,
+ DocumentByteSpan,InventedDocumentResult,FeedDocumentAssociation)
+
+
+def _snapshot_document_reopen_inputs(*values):
+ return thaw_input(freeze_input(values,_DOCUMENT_REOPEN_RECORDS))
+
+
 def _current(feed,page_receipt,history_raw,at):
  confirm_reopened_page(page_receipt,feed,observed_at=at)
  history=parse_invented_pg_item_history(history_raw,feed.capture,item_id=feed.item.item_id,observed_at=at)
@@ -59,6 +73,11 @@ def _current(feed,page_receipt,history_raw,at):
 
 def prepare_document_reopen(feed,page_receipt,history_raw,*,binding,mapping,association,observed_at):
  try:
+  try:
+   feed,page_receipt,history_raw,binding,mapping,association,observed_at = _snapshot_document_reopen_inputs(
+    feed,page_receipt,history_raw,binding,mapping,association,observed_at)
+  except Exception:
+   raise DocumentReopenError('document_reopen_input_invalid') from None
   if (type(feed) is not ReopenedCapture or type(page_receipt) is not bytes or type(history_raw) is not bytes
       or type(binding) is not DocumentPassageBinding or type(mapping) is not DocumentSpanMap
       or type(association) is not FeedDocumentAssociation or not _utc(observed_at)):raise ValueError
@@ -78,6 +97,10 @@ def prepare_document_reopen(feed,page_receipt,history_raw,*,binding,mapping,asso
 
 def parse_reopened_document(raw,expected,*,observed_at):
  try:
+  try:
+   raw,expected,observed_at = _snapshot_document_reopen_inputs(raw,expected,observed_at)
+  except Exception:
+   raise DocumentReopenError('document_reopen_observation_unavailable') from None
   if type(expected) is not DocumentReopenRequest or type(raw) is not bytes or not 1<=len(raw)<=MAX_CAPTURE_OUTPUT or not _utc(observed_at):raise ValueError
   expected.statement();value=strict_json(raw);last=_current(expected.feed,expected.page_receipt,expected.history_raw,expected.observed_at)
   if (type(value) is not dict or set(value)!={'schema_version','kind','request','raw_base64','artifact_id','stored_at','observed_at'}
@@ -102,6 +125,10 @@ def parse_reopened_document(raw,expected,*,observed_at):
 
 def confirm_reopened_document_result(raw_receipt,reopened,*,observed_at):
  try:
+  try:
+   raw_receipt,reopened,observed_at = _snapshot_document_reopen_inputs(raw_receipt,reopened,observed_at)
+  except Exception:
+   raise DocumentReopenError('document_reopen_result_unavailable') from None
   if type(reopened) is not ReopenedDocumentResult or not _utc(observed_at) or observed_at<reopened.observed_at:raise ValueError
   checked=parse_reopened_document(reopened.response_raw,reopened.request,observed_at=reopened.observed_at)
   if checked!=reopened:raise ValueError

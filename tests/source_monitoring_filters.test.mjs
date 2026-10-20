@@ -11,7 +11,7 @@ const Explorer = loadTsx(new URL("../src/source-monitoring-explorer.tsx", import
 const render = (filter, input = createInventedSourceMonitoringSnapshot()) => renderToStaticMarkup(View({ input, filter }));
 const mount = sharedViewModule(new URL("../src/source-monitoring-explorer.tsx", import.meta.url), "SourceMonitoringExplorer");
 
-test("display filter grammar admits only the two separate finite observation axes", () => {
+test("display filter grammar preserves the two original required finite observation axes", () => {
   assert.deepEqual(sourceMonitoringFilter({ check: "failed", permission: "unresolved" }), { check: "failed", permission: "unresolved" });
   for (const input of [null, [], {}, { check: [], permission: "" }, { check: "healthy", permission: "" },
     { check: "", permission: "public_reuse_allowed" }, { check: "", permission: "", provider: "PRIVATE_VALUE" },
@@ -50,10 +50,10 @@ test("malformed filters refuse opaquely instead of falling back to all or hiding
 test("native initial controls are labelled, local and limited to display filtering", t => {
   t.mock.method(globalThis, "fetch", () => assert.fail("No source request"));
   const html = renderToStaticMarkup(createElement(Explorer, { input: createInventedSourceMonitoringSnapshot() }));
-  for (const id of ["source-monitoring-check-filter", "source-monitoring-permission-filter"]) {
+  for (const id of ["source-monitoring-check-filter", "source-monitoring-permission-filter", "source-monitoring-registration-filter", "source-monitoring-due-filter"]) {
     assert.match(html, new RegExp(`for="${id}"`)); assert.match(html, new RegExp(`id="${id}"`));
   }
-  assert.equal((html.match(/<select/g) ?? []).length, 2); assert.match(html, /Clear display filters/);
+  assert.equal((html.match(/<select/g) ?? []).length, 4); assert.match(html, /Clear display filters/);
   assert.match(html, /<button type="button" disabled=""/); assert.match(html, /role="status"/);
   assert.doesNotMatch(html, /<form|<input|<textarea|href="https?:/);
 });

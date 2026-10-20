@@ -2,7 +2,8 @@
 
 No executable, credentials, environment, socket capability or source approval is
 selected here. The trusted caller starts its exact child. Output is limited
-while reading; cancellation, timeout or overflow kills and reaps that child.
+while reading; cancellation, timeout or overflow attempts to kill and reap that
+child. Unconfirmed exit or pipe cleanup remains a refusal.
 """
 from dataclasses import dataclass
 from fractions import Fraction
@@ -40,6 +41,7 @@ def communicate_bounded(process, payload: bytes, *, timeout=20, max_stdout=16384
     caps = {'stdout': max_stdout, 'stderr': max_stderr}
     sent = 0
     failed = True
+    operation_cancellation = False
     try:
         def checked_tick(previous=None):
             try:
@@ -110,15 +112,39 @@ def communicate_bounded(process, payload: bytes, *, timeout=20, max_stdout=16384
         return WorkerOutput(bytes(buffers['stdout']), bytes(buffers['stderr']), process.returncode)
     except (OSError, ValueError, subprocess.TimeoutExpired):
         raise BoundedWorkerError('Private process unavailable or outside its bounds') from None
+    except BaseException as error:
+        operation_cancellation = not isinstance(error, Exception)
+        raise
     finally:
-        if failed and process.poll() is None:
-            process.kill()
-        if process.poll() is None:
-            try:
+        # Exit confirmation and each pipe are independent cleanup obligations.
+        # Preserve cancellation even if cleanup also fails; never infer exit
+        # from a successful kill call or an unconfirmed wait result.
+        cleanup_failed = False
+        cleanup_cancellation = None
+        try:
+            if failed and process.poll() is None:
+                process.kill()
+            if process.poll() is None:
                 process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                raise BoundedWorkerError('Private process cleanup unavailable') from None
+            if process.poll() is None:
+                cleanup_failed = True
+        except BaseException as error:
+            cleanup_failed = True
+            if not isinstance(error, Exception):
+                cleanup_cancellation = error
         for name in ('stdin', 'stdout', 'stderr'):
-            stream = getattr(process, name)
-            if stream is not None and not stream.closed:
-                stream.close()
+            try:
+                stream = getattr(process, name)
+                if stream is not None and not stream.closed:
+                    stream.close()
+                if stream is not None and not stream.closed:
+                    cleanup_failed = True
+            except BaseException as error:
+                cleanup_failed = True
+                if not isinstance(error, Exception) and cleanup_cancellation is None:
+                    cleanup_cancellation = error
+        if not operation_cancellation:
+            if cleanup_cancellation is not None:
+                raise cleanup_cancellation
+            if cleanup_failed:
+                raise BoundedWorkerError('Private process cleanup unavailable') from None

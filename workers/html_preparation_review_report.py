@@ -7,7 +7,7 @@ context within provenance remain inspectable. Reobservation renews no authority.
 from datetime import datetime
 from hashlib import sha256
 import json
-from workers.html_proposal_postgres import HtmlPreparationReopenExpected,reopen_stored_html_proposal
+from workers.html_proposal_postgres import HtmlPreparationReopenExpected,reopen_stored_html_proposal,_snapshot_proposal_values
 from workers.html_extraction_custody import HtmlExtractionReopenExpected
 from workers.html_extraction_review_report import html_extraction_review_report
 from workers.private_extraction_held_proposal import _json
@@ -25,6 +25,9 @@ def html_preparation_review_report(receipt:bytes,expected:HtmlPreparationReopenE
         current_receipt:bytes,previous_receipt:bytes,observed_at:datetime)->bytes:
     """Reopen all four full inputs and retain original immutable chronology."""
     try:
+        (receipt, expected, extraction_receipt, extraction_expected, current_receipt,
+         previous_receipt, observed_at) = _snapshot_proposal_values(receipt, expected,
+            extraction_receipt, extraction_expected, current_receipt, previous_receipt, observed_at)
         reopened=reopen_stored_html_proposal(receipt,expected,extraction_receipt=extraction_receipt,
             extraction_expected=extraction_expected,current_receipt=current_receipt,
             previous_receipt=previous_receipt,observed_at=observed_at)

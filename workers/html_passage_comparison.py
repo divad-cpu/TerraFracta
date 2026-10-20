@@ -7,8 +7,9 @@ current rights, factual support, model dispatch or publication eligibility.
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.html_passage_binding import (
-    HtmlDocumentReceipt, HtmlPassageBinding, HtmlSelectionMap,
+    HtmlDocumentReceipt, HtmlPassageBinding, HtmlSelectionMap, HtmlElementSelection,
     BoundHtmlPassages, bind_html_passages,
 )
 from workers.passage_model_plan import PassageChange
@@ -54,6 +55,12 @@ def compare_html_passages(current: HtmlPassageCapture,
     markup and document versions may change while that selection stays fixed.
     """
     try:
+        # Rebinding the first vintage must not change the other's entry values.
+        try:
+            current, previous, observed_at = thaw_input(freeze_input((current, previous, observed_at),
+                (HtmlPassageCapture, HtmlDocumentReceipt, HtmlPassageBinding, HtmlSelectionMap, HtmlElementSelection)))
+        except Exception:
+            raise HtmlComparisonError('html_comparison_unavailable') from None
         now = _bind(current, observed_at)
         before = None if previous is None else _bind(previous, observed_at)
         if before is not None:

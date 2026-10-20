@@ -8,12 +8,15 @@ import base64
 from dataclasses import dataclass,field,asdict
 from datetime import datetime
 import json
-from workers.feed_collection_inventory import InventoryRequest,InventoryItem,parse_collection_inventory_page
+from workers.feed_collection_inventory import InventoryRequest,InventoryItem,InventoryCut,InventoryCursor,parse_collection_inventory_page
 from workers.feed_postgres_contract import (InventedPgCapture,InventedPgReadback,HEAD,COMMIT_MARKER,
     MAX_CAPTURE_OUTPUT,_uuid,_utc,_time,_parse_time,prepare_invented_pg_capture,parse_invented_pg_readback)
 from workers.feed_discovery import FeedReceipt,MAX_FEED_BYTES,PARSER_IDENTITY
 from workers.closed_pair_channel import _json as strict_json
 from workers.pair_native_sql import _literal
+from workers.dispatch_input_snapshot import freeze_input,thaw_input
+from workers.feed_window_lineage import InventedCollectionScope
+from workers.feed_postgres_processing import InventedPgOutcomeReceipt
 
 class FeedReopenError(ValueError):pass
 
@@ -28,10 +31,14 @@ class ReopenRequest:
     canonical_input: bytes=field(repr=False)
 
     def statement(self):
-        if type(self.canonical_input) is not bytes:raise FeedReopenError('reopen_request_binding_invalid')
-        checked=prepare_capture_reopen(self.inventory_request,self.inventory_raw,observed_at=self.inventory_observed_at,item_id=self.item_id)
-        if checked!=self:raise FeedReopenError('reopen_request_binding_invalid')
-        statement=HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_feed_reopen.original("+_literal(self.canonical_input.decode())+"::jsonb);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        try:
+            expected, = _snapshot_reopen_inputs(self)
+        except Exception:
+            raise FeedReopenError('reopen_request_binding_invalid') from None
+        if type(expected.canonical_input) is not bytes:raise FeedReopenError('reopen_request_binding_invalid')
+        checked=prepare_capture_reopen(expected.inventory_request,expected.inventory_raw,observed_at=expected.inventory_observed_at,item_id=expected.item_id)
+        if checked!=expected:raise FeedReopenError('reopen_request_binding_invalid')
+        statement=HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_feed_reopen.original("+_literal(checked.canonical_input.decode())+"::jsonb);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
         if len(statement.encode())>8192:raise FeedReopenError('reopen_statement_limit')
         return statement
 
@@ -45,6 +52,15 @@ class ReopenedCapture:
     evidence_state: str='invented_original_reopened_page_readback_and_current_history_still_required'
 
 
+_REOPEN_INPUT_RECORDS = (ReopenRequest, ReopenedCapture, InventoryRequest, InventoryItem,
+    InventoryCut, InventoryCursor, InventedCollectionScope, InventedPgCapture,
+    FeedReceipt, InventedPgOutcomeReceipt)
+
+
+def _snapshot_reopen_inputs(*values):
+    return thaw_input(freeze_input(values, _REOPEN_INPUT_RECORDS))
+
+
 def _selected(request,raw,at,item_id):
     if not _uuid(item_id):raise ValueError
     page=parse_collection_inventory_page(raw,request,observed_at=at)
@@ -53,6 +69,11 @@ def _selected(request,raw,at,item_id):
 
 def prepare_capture_reopen(inventory_request,inventory_raw,*,observed_at,item_id):
     try:
+        try:
+            inventory_request, inventory_raw, observed_at, item_id = _snapshot_reopen_inputs(
+                inventory_request, inventory_raw, observed_at, item_id)
+        except Exception:
+            raise FeedReopenError('reopen_input_invalid') from None
         item=_selected(inventory_request,inventory_raw,observed_at,item_id)
         value={'scope':asdict(inventory_request.scope),'window_revision':item.position.window_revision,
             'page_revision':item.position.page_revision,'item_position':item.position.item_position,
@@ -66,6 +87,10 @@ def prepare_capture_reopen(inventory_request,inventory_raw,*,observed_at,item_id
 
 def parse_reopened_capture(raw,expected,*,observed_at):
     try:
+        try:
+            raw, expected, observed_at = _snapshot_reopen_inputs(raw, expected, observed_at)
+        except Exception:
+            raise FeedReopenError('reopen_observation_unavailable') from None
         if type(expected) is not ReopenRequest or type(raw) is not bytes or not 1<=len(raw)<=MAX_CAPTURE_OUTPUT or not _utc(observed_at):raise ValueError
         expected.statement();item=_selected(expected.inventory_request,expected.inventory_raw,expected.inventory_observed_at,expected.item_id)
         value=strict_json(raw)
@@ -94,6 +119,10 @@ def parse_reopened_capture(raw,expected,*,observed_at):
 def confirm_reopened_page(raw_receipt,reopened,*,observed_at):
     """Bind complete stored page/items using the existing original-byte parser."""
     try:
+        try:
+            raw_receipt, reopened, observed_at = _snapshot_reopen_inputs(raw_receipt, reopened, observed_at)
+        except Exception:
+            raise FeedReopenError('reopen_page_unavailable') from None
         if type(reopened) is not ReopenedCapture:raise ValueError
         checked=parse_reopened_capture(reopened.raw_response,reopened.request,observed_at=reopened.observed_at)
         if checked!=reopened or not _utc(observed_at) or observed_at<reopened.observed_at:raise ValueError

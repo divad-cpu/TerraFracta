@@ -70,23 +70,29 @@ export function readPlannedMilestoneDraftFile(bytes: ArrayBuffer, expectedBytes:
     return reopenPlannedMilestoneDraftJson(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(owned.subarray(0, size)), context);
   } catch { return null; }
 }
-// Exact native form names; no control can supply or replace the captured binding.
-export function plannedMilestoneDraftFromEntries(input: Iterable<unknown>, rowIds: number[], context: ScopeDraftContext): PlannedMilestoneDraft | null {
+// One bounded native-control grammar is shared by admission and fixed hints.
+function collectedMilestoneControls(input: Iterable<unknown>, rowIds: number[], context: ScopeDraftContext) {
   try {
     const checked = checkedResponsibilityContext(context);
-    if (!checked || rowIds.length > PLANNED_MILESTONE_DRAFT_ENTRIES || new Set(rowIds).size !== rowIds.length ||
+    if (!checked || new Set(rowIds).size !== rowIds.length ||
         rowIds.some(id => !Number.isSafeInteger(id) || id <= 0)) return null;
+    if (rowIds.length > PLANNED_MILESTONE_DRAFT_ENTRIES) return { kind: "too_many" as const };
     const fields = Object.keys(plannedMilestoneDraftFieldLabels) as PlannedMilestoneDraftField[];
     const singles = ["claim", "description", "institution", "targetPrecision", "targetValue", "reportedPrecision", "reportedValue"];
     const known = new Set(rowIds.flatMap(id => [...singles, ...fields.map(key => key + "References")].map(key => `${id}.${key}`)));
     const values = new Map<string, string[]>(); let count = 0, size = 0;
     for (const pair of input) {
       if (++count > PLANNED_MILESTONE_DRAFT_ENTRIES * (7 + 4 * 12) || !Array.isArray(pair) || pair.length !== 2 ||
-          typeof pair[0] !== "string" || typeof pair[1] !== "string" || pair[1].length > PLANNED_MILESTONE_DRAFT_BYTES || !known.has(pair[0])) return null;
-      size += new TextEncoder().encode(pair[0] + pair[1]).byteLength; if (size > PLANNED_MILESTONE_DRAFT_BYTES) return null;
+          typeof pair[0] !== "string" || typeof pair[1] !== "string" || !known.has(pair[0])) return null;
+      if (pair[1].length > PLANNED_MILESTONE_DRAFT_BYTES) return { kind: "input_size" as const };
+      size += new TextEncoder().encode(pair[0] + pair[1]).byteLength; if (size > PLANNED_MILESTONE_DRAFT_BYTES) return { kind: "input_size" as const };
       const list = values.get(pair[0]) ?? []; list.push(pair[1]); values.set(pair[0], list);
     }
-    const refs = new Map(checked.context.claims.flatMap(claim => claim.evidence.map((_ref, index) =>
+    return { kind: "collected" as const, values, rowIds: [...rowIds], context: checked.context };
+  } catch { return null; }
+}
+function milestoneEntries(values: Map<string, string[]>, rowIds: number[], context: ScopeDraftContext) {
+    const refs = new Map(context.claims.flatMap(claim => claim.evidence.map((_ref, index) =>
       [scopeReferenceKey(claim.id, index + 1), { claimId: claim.id, referenceNumber: index + 1 }] as const)));
     const entries = rowIds.map(id => {
       const one = (key: string) => { const list = values.get(`${id}.${key}`); if (list?.length !== 1) throw Error(); return list[0]; };
@@ -105,6 +111,52 @@ export function plannedMilestoneDraftFromEntries(input: Iterable<unknown>, rowId
         institution: institution === "" ? null : { wording: institution, references: institutionRefs }, reportedDate: date("reported", "reportedDate"),
       } };
     });
-    return checkPlannedMilestoneDraft({ schemaVersion: 1, kind: "planned_milestone_preparation", binding: checked.context.binding, entries }, checked.context);
+    return entries;
+}
+export function plannedMilestoneDraftFromEntries(input: Iterable<unknown>, rowIds: number[], context: ScopeDraftContext): PlannedMilestoneDraft | null {
+  try {
+    const collected = collectedMilestoneControls(input, rowIds, context);
+    if (collected?.kind !== "collected") return null;
+    return checkPlannedMilestoneDraft({ schemaVersion: 1, kind: "planned_milestone_preparation", binding: collected.context.binding,
+      entries: milestoneEntries(collected.values, collected.rowIds, collected.context) }, collected.context);
   } catch { return null; }
+}
+export type PlannedMilestoneDraftFeedback = { entries: Array<{ statement: boolean; duplicate: boolean;
+  fields: Record<PlannedMilestoneDraftField, { value: boolean; precision: boolean; references: boolean }> }>;
+  tooMany: boolean; size: "input" | "copy" | null };
+// Fixed flags only, never source wording, native exception text or acceptance.
+export function plannedMilestoneDraftFeedbackFromEntries(input: Iterable<unknown>, rowIds: number[], contextInput: ScopeDraftContext): PlannedMilestoneDraftFeedback | null {
+ try {
+  const collected=collectedMilestoneControls(input,rowIds,contextInput);if(!collected)return null;
+  if(collected.kind!=="collected")return{entries:[],tooMany:collected.kind==="too_many",size:collected.kind==="input_size"?"input":null};
+  const {values,context}=collected,claims=new Map(context.claims.map(claim=>[claim.id,claim])),known=new Set(context.claims.flatMap(claim=>claim.evidence.map((_ref,index)=>scopeReferenceKey(claim.id,index+1))));
+  const seen=new Set<string>(),entries:PlannedMilestoneDraftFeedback["entries"]=[];
+  for(const id of collected.rowIds){
+   const one=(name:string)=>{const list=values.get(`${id}.${name}`);if(list?.length!==1)throw Error();return list[0];};
+   const claim=one("claim"),hint={statement:!["policy_action","delivery"].includes(claims.get(claim)?.type??""),duplicate:false,
+    fields:Object.fromEntries(Object.keys(plannedMilestoneDraftFieldLabels).map(field=>[field,{value:false,precision:false,references:false}]))as PlannedMilestoneDraftFeedback["entries"][number]["fields"]};
+   for(const field of Object.keys(plannedMilestoneDraftFieldLabels)as PlannedMilestoneDraftField[]){
+    const refs=values.get(`${id}.${field}References`)??[],flag=hint.fields[field];
+    flag.references=refs.length>12||new Set(refs).size!==refs.length||refs.some(ref=>!known.has(ref));
+    if(field==="targetDate"||field==="reportedDate"){
+     const stem=field==="targetDate"?"target":"reported",precision=one(stem+"Precision"),value=one(stem+"Value");
+     if(precision===""){flag.precision=value!==""||refs.length>0;flag.value=value===""&&refs.length>0;}
+     else if(!["day","month","year","period"].includes(precision))flag.precision=true;
+     else flag.value=!knownDate.safeParse(precision==="period"?{precision,label:value}:{precision,value}).success;
+     if(precision!==""&&refs.length===0)flag.references=true;
+    }else{
+     const wording=one(field),supplied=field==="description"||wording!==""||refs.length>0;
+     flag.value=supplied&&!wordField.shape.wording.safeParse(wording).success;
+     if(supplied&&refs.length===0)flag.references=true;
+    }
+   }
+   try{const entry=milestoneEntries(values,[id],context)[0],parsed=schema.shape.entries.element.safeParse(entry);if(parsed.success){const key=canonicalProposalJson(parsed.data);hint.duplicate=seen.has(key);seen.add(key);}}catch{/* Invalid fields have fixed flags above. */}
+   entries.push(hint);
+  }
+  let size:PlannedMilestoneDraftFeedback["size"]=null;
+  try{const value=checkPlannedMilestoneDraft({schemaVersion:1,kind:"planned_milestone_preparation",binding:context.binding,entries:milestoneEntries(values,collected.rowIds,context)},context);
+   if(value!==null&&plannedMilestoneDraftJson(value,context)===null)size="copy";
+  }catch{/* Unknown reference choices remain field failures. */}
+  return{entries,tooMany:false,size};
+ }catch{return null;}
 }

@@ -8,7 +8,7 @@ from dataclasses import dataclass,field
 from datetime import datetime
 import json
 from re import fullmatch
-from workers.feed_capture_reopen import ReopenRequest,_canonical
+from workers.feed_capture_reopen import ReopenRequest,_canonical,_snapshot_reopen_inputs
 from workers.feed_collection_inventory import parse_collection_inventory_page
 from workers.feed_stream_reader import _route
 from workers.feed_postgres_contract import _utc,_parse_time,_uuid
@@ -58,6 +58,10 @@ def stored_document_reference_statement(request):
 def parse_stored_document_reference(raw,request,*,observed_at):
  """Never infer a full binding, source history or source chronology from this."""
  try:
+  try:
+   raw,request,observed_at = _snapshot_reopen_inputs(raw,request,observed_at)
+  except Exception:
+   raise StoredDocumentReferenceError('stored_document_reference_unavailable') from None
   if type(raw) is not bytes or not 1<=len(raw)<=MAX_REFERENCE_OUTPUT or type(request) is not ReopenRequest or not _utc(observed_at):raise ValueError
   stored_document_reference_statement(request)
   inventory=parse_collection_inventory_page(request.inventory_raw,request.inventory_request,observed_at=request.inventory_observed_at)

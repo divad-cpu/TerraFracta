@@ -8,7 +8,7 @@ from datetime import datetime
 import json
 
 from workers.html_passage_comparison import HtmlPassageCapture, compare_html_passages
-from workers.html_extraction_request import OfflineHtmlExtractionRequest, compile_html_extraction_request
+from workers.html_extraction_request import OfflineHtmlExtractionRequest, compile_html_extraction_request, _snapshot_request_values
 
 MAX_HTML_INSPECTION_BYTES = 256 * 1024
 
@@ -42,6 +42,11 @@ def html_inspection_report(current: HtmlPassageCapture, previous: HtmlPassageCap
         maximum_output_tokens: int | None = None) -> bytes:
     """Project exact selected text and provenance; never choose/repair a baseline."""
     try:
+        try:
+            current, previous, observed_at, request, maximum_output_tokens = _snapshot_request_values(
+                current, previous, observed_at, request, maximum_output_tokens)
+        except Exception:
+            raise HtmlInspectionReportError('html_inspection_report_unavailable') from None
         compared = compare_html_passages(current, previous, observed_at=observed_at)
         request_summary = None
         if request is None:

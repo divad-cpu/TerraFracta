@@ -9,7 +9,7 @@ from datetime import datetime
 from hashlib import sha256
 import json
 
-from workers.html_extraction_custody import HtmlExtractionReopenExpected,reopen_html_extraction
+from workers.html_extraction_custody import HtmlExtractionReopenExpected,reopen_html_extraction,_snapshot_custody_values
 from workers.html_inspection_report import html_inspection_report
 from workers.feed_postgres_contract import _time
 
@@ -30,6 +30,11 @@ def html_extraction_review_report(receipt:bytes,expected:HtmlExtractionReopenExp
         current_receipt:bytes,previous_receipt:bytes,observed_at:datetime)->bytes:
     """No partial report, prebuilt proposal, or inferred publication context."""
     try:
+        try:
+            receipt, expected, current_receipt, previous_receipt, observed_at = _snapshot_custody_values(
+                receipt, expected, current_receipt, previous_receipt, observed_at)
+        except Exception:
+            raise HtmlExtractionReviewReportError('html_extraction_review_report_unavailable') from None
         stored=reopen_html_extraction(receipt,expected,current_receipt=current_receipt,
             previous_receipt=previous_receipt,observed_at=observed_at)
         result=stored.result;plan=result.plan

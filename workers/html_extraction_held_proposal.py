@@ -9,7 +9,7 @@ from datetime import datetime,timedelta
 from hashlib import sha256
 import json,re
 
-from workers.html_extraction_custody import HtmlExtractionReopenExpected
+from workers.html_extraction_custody import HtmlExtractionReopenExpected,_snapshot_custody_values
 from workers.html_extraction_review_report import html_extraction_review_report
 from workers.private_extraction_held_proposal import (MAX_CONTEXT_BYTES,MAX_PAYLOAD_BYTES,MAX_PROVENANCE_BYTES,
     _json,_unique,_shape,_text,_instant,_date)
@@ -44,6 +44,8 @@ def prepare_html_extraction_held_proposal(receipt:bytes,expected:HtmlExtractionR
     widening any old custody type or installing an HTML capture/provider route.
     """
     try:
+        receipt, expected, independent_context, current_receipt, previous_receipt, observed_at = _snapshot_custody_values(
+            receipt, expected, independent_context, current_receipt, previous_receipt, observed_at)
         if (type(independent_context) is not bytes or not 1<=len(independent_context)<=MAX_CONTEXT_BYTES
                 or type(observed_at) is not datetime or observed_at.utcoffset()!=timedelta(0)):raise ValueError
         report=json.loads(html_extraction_review_report(receipt,expected,current_receipt=current_receipt,

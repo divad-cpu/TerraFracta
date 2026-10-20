@@ -10,7 +10,10 @@ from dataclasses import dataclass, field
 from re import fullmatch
 from workers.bounded_worker_process import WorkerOutput
 from workers.feed_postgres_contract import committed_pg_json, _utc, _uuid
-from workers.feed_collection_inventory import InventoryRequest, parse_collection_inventory_page
+from workers.feed_collection_inventory import (InventoryRequest, InventoryCut, InventoryCursor,
+    parse_collection_inventory_page)
+from workers.feed_window_lineage import InventedCollectionScope
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.feed_collection_reader import restricted_inventory_statement
 from workers.feed_capture_reopen import prepare_capture_reopen, parse_reopened_capture, confirm_reopened_page
 from workers.feed_postgres_processing import parse_invented_pg_item_history
@@ -78,6 +81,10 @@ def read_retained_document(inventory: InventoryRequest, *, binding: DocumentPass
     Confirmed results remain private and must be revalidated by later consumers.
     """
     try:
+        inventory, binding, mapping, association = thaw_input(freeze_input(
+            (inventory, binding, mapping, association),
+            (InventoryRequest, InventoryCut, InventoryCursor, InventedCollectionScope,
+             DocumentPassageBinding, DocumentSpanMap, DocumentByteSpan, FeedDocumentAssociation)))
         _inputs(inventory, binding, mapping, association)
         if not callable(query) or not callable(utc_now): raise ValueError
         previous = None
@@ -85,7 +92,7 @@ def read_retained_document(inventory: InventoryRequest, *, binding: DocumentPass
 
         def tick():
             nonlocal previous
-            at = utc_now()
+            at = thaw_input(freeze_input(utc_now()))
             if not _utc(at) or at < binding.retrieved_at or (previous is not None and at < previous):
                 raise ValueError
             previous = at
@@ -95,6 +102,8 @@ def read_retained_document(inventory: InventoryRequest, *, binding: DocumentPass
             nonlocal count
             tick()
             output = query(statement)
+            # Own every returned field before the post-I/O clock can reenter.
+            output = thaw_input(freeze_input(output, (WorkerOutput,)))
             count += 1
             at = tick()
             if type(output) is not WorkerOutput: raise ValueError

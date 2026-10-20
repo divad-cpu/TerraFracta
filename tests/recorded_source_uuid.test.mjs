@@ -46,7 +46,11 @@ test("actual captured comparison links both spellings and proposal receipt to on
   assert.ok(html.includes("Base &lt;literal&gt; title")); assert.ok(html.includes(lower.toUpperCase())); assert.ok(html.includes(lower));
   const index = /<details class="proposal-source-index">([\s\S]*?)<\/details>/.exec(html)[1];
   assert.equal((index.match(/href="#proposal-source-receipt-1"/g) ?? []).length, 1);
-  assert.equal((html.match(/href="#proposal-source-version-1"/g) ?? []).length, 3);
+  const languageLocations = /<ol aria-label="Matching source receipt locations">([\s\S]*?)<\/ol>/.exec(html)?.[1];
+  assert.ok(languageLocations, "The captured-language locator retains its recorded receipt list");
+  assert.equal((languageLocations.match(/href="#proposal-source-version-1"/g) ?? []).length, 1);
+  assert.equal((html.replace(languageLocations, "").match(/href="#proposal-source-version-1"/g) ?? []).length, 3);
+  assert.equal((html.match(/href="#proposal-source-version-1"/g) ?? []).length, 4);
   assert.ok(html.includes("Its language and retrieval record belong to this captured proposal"));
   assert.ok(html.includes("not independent confirmation")); assert.ok(html.includes("Current public eligibility and source health were not checked"));
   assert.deepEqual(report, before); verifyTargets(html);

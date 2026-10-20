@@ -22,10 +22,10 @@ test("actual native File opens locally into editable fields and exact references
  assert.deepEqual(field(h, "select", "-population-references").props.value, [`${proposalId(3)}:2`]);
  const html = renderToStaticMarkup(h.render()); assert.match(html, /Local preparation file opened/); assert.doesNotMatch(html, /PRIVATE_FILENAME|<form|href="https:/); h.unmount();
 });
-test("oversize unreadable invalid and mismatched files immediately withhold prior editing and preview", async () => {
+test("oversize unreadable invalid and mismatched files retain editing and withhold preview", async () => {
  const ctx = context(), h = scopeDraftHarness(ctx); h.mount(); choose(h, new File([scopeDraftJson(candidate(ctx), ctx)], "PRIVATE_FILENAME")); await tick(); assert.ok(preview(h));
  let slices = 0; choose(h, { size: SCOPE_DRAFT_BYTES + 1, slice() { slices++; assert.fail("Oversize dispatch"); } }); await tick(); assert.equal(slices, 0); assert.equal(preview(h), undefined);
- assert.equal(field(h, "textarea", "-population-wording").props.value, "");
+ assert.equal(field(h, "textarea", "-population-wording").props.value, "Invented file scope");
  for (const file of [new File(["{PRIVATE_CANARY"], "PRIVATE_FILENAME"), { size: 2, slice() { throw Error("PRIVATE_PATH"); } }, new File([scopeDraftJson(candidate({ ...ctx, binding: { ...ctx.binding, comparisonSha256: "c".repeat(64) } }), { ...ctx, binding: { ...ctx.binding, comparisonSha256: "c".repeat(64) } })], "PRIVATE_FILENAME")]) {
   choose(h, file); await tick(); const html = renderToStaticMarkup(h.render()); assert.equal(preview(h), undefined); assert.match(html, /could not be checked/); assert.doesNotMatch(html, /PRIVATE_CANARY|PRIVATE_FILENAME|PRIVATE_PATH/);
  }
@@ -46,8 +46,10 @@ test("new editing review or paste actions retire an unfinished file result befor
   if (kind === "review") button(h, "Review scope draft").props.onClick();
   if (kind === "paste") field(h, "textarea", "-reopen-json").props.onChange({ currentTarget: { value: "{}" } });
   input.resolve(); await tick();
-  if (kind === "review") assert.equal(JSON.parse(preview(h)).fields.population, null); else assert.equal(preview(h), undefined);
-  if (kind === "editing") assert.equal(field(h, "textarea", "-population-wording").props.value, "Invented newer editing");
+  // The retained unfinished wording has no references: explicit review holds
+  // it rather than treating a failed File choice as a fresh empty worksheet.
+  assert.equal(preview(h), undefined);
+  if (kind === "editing" || kind === "review") assert.equal(field(h, "textarea", "-population-wording").props.value, "Invented newer editing");
  }
  h.unmount();
 });

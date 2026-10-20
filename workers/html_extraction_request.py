@@ -10,6 +10,10 @@ from datetime import datetime
 from hashlib import sha256
 import json
 
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
+from workers.html_passage_binding import (
+    HtmlDocumentReceipt, HtmlPassageBinding, HtmlSelectionMap, HtmlElementSelection,
+)
 from workers.html_passage_comparison import HtmlPassageCapture, compare_html_passages
 from workers.model_proposal import ModelProposal, MAX_OUTPUT_BYTES
 from workers.passage_extraction_request import (
@@ -36,7 +40,21 @@ class OfflineHtmlExtractionRequest:
     evidence_state: str = 'offline_html_complete_extraction_envelope_only'
 
 
+_REQUEST_RECORDS = (OfflineHtmlExtractionRequest, FullRequestTokenLimit,
+    HtmlPassageCapture, HtmlDocumentReceipt, HtmlPassageBinding,
+    HtmlSelectionMap, HtmlElementSelection)
+
+
+def _snapshot_request_values(*values):
+    return thaw_input(freeze_input(values, _REQUEST_RECORDS))
+
+
 def _compile(current, previous, observed_at, maximum_output_tokens):
+    try:
+        current, previous, observed_at, maximum_output_tokens = _snapshot_request_values(
+            current, previous, observed_at, maximum_output_tokens)
+    except Exception:
+        raise HtmlExtractionRequestError('html_extraction_request_unavailable') from None
     if not _tokens(maximum_output_tokens):
         raise ValueError
     compared = compare_html_passages(current, previous, observed_at=observed_at)
@@ -70,6 +88,11 @@ def compile_html_extraction_request(current: HtmlPassageCapture,
 
 def _regenerate(request, current, previous, observed_at, maximum_output_tokens):
     try:
+        try:
+            request, current, previous, observed_at, maximum_output_tokens = _snapshot_request_values(
+                request, current, previous, observed_at, maximum_output_tokens)
+        except Exception:
+            raise HtmlExtractionRequestError('html_extraction_request_binding_mismatch') from None
         if (type(request) is not OfflineHtmlExtractionRequest or type(request.body) is not bytes
                 or any(type(value) is not str for value in (request.item_key, request.request_sha256,
                     request.selected_payload_sha256, request.evidence_state))
@@ -78,7 +101,7 @@ def _regenerate(request, current, previous, observed_at, maximum_output_tokens):
         expected, compared = _compile(current, previous, observed_at, maximum_output_tokens)
         if request != expected:
             raise ValueError
-        return compared
+        return expected, compared
     except (ValueError, TypeError, AttributeError, KeyError, UnicodeError, OverflowError):
         raise HtmlExtractionRequestError('html_extraction_request_binding_mismatch') from None
 
@@ -88,7 +111,12 @@ def bind_html_full_request_token_limit(request: OfflineHtmlExtractionRequest, *,
         observed_at: datetime, maximum_output_tokens: int,
         proof: FullRequestTokenLimit) -> PassageTokenLimit:
     """The unchanged offline cost planner still decides every reservation."""
-    _regenerate(request, current, previous, observed_at, maximum_output_tokens)
+    try:
+        request, current, previous, observed_at, maximum_output_tokens, proof = _snapshot_request_values(
+            request, current, previous, observed_at, maximum_output_tokens, proof)
+    except Exception:
+        raise HtmlExtractionRequestError('html_extraction_full_token_binding_mismatch') from None
+    request, _ = _regenerate(request, current, previous, observed_at, maximum_output_tokens)
     if (type(proof) is not FullRequestTokenLimit or type(proof.item_key) is not str
             or proof.item_key != request.item_key or type(proof.request_sha256) is not str
             or proof.request_sha256 != request.request_sha256 or not _tokens(proof.maximum_input_tokens)):
@@ -100,7 +128,12 @@ def parse_html_extraction_proposal(raw: bytes, request: OfflineHtmlExtractionReq
         current: HtmlPassageCapture, previous: HtmlPassageCapture | None,
         observed_at: datetime, maximum_output_tokens: int) -> ModelProposal:
     """Only changed exact locators; a structurally valid result stays unverified."""
-    compared = _regenerate(request, current, previous, observed_at, maximum_output_tokens)
+    try:
+        raw, request, current, previous, observed_at, maximum_output_tokens = _snapshot_request_values(
+            raw, request, current, previous, observed_at, maximum_output_tokens)
+    except Exception:
+        raise HtmlExtractionRequestError('html_extraction_request_binding_mismatch') from None
+    request, compared = _regenerate(request, current, previous, observed_at, maximum_output_tokens)
     return parse_changed_passage_proposal(raw, current=compared.current.snapshot,
         previous=None if compared.previous is None else compared.previous.snapshot,
         expected_payload_sha256=request.selected_payload_sha256)

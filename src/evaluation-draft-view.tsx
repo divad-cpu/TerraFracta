@@ -8,6 +8,7 @@ import { preparationInputIntent,type PreparationInputIntents } from "./preparati
 import { recordedProposalReferenceAnchor } from "./recorded-reference-differences.ts";
 import { withLocalRequestDeadline } from "./local-request-deadline.ts";
 import { cancelLocalFileRead } from "./local-file-cancellation.ts";
+import { matchingScopeReferenceKeys } from "./issue-scope-reference-search.ts";
 type Entry=EvaluationDraft["entries"][number];
 type Row={id:number;initial:Entry|null;references:Record<EvaluationField,string[]>;referenceHeld:Record<EvaluationField,boolean>};
 type Editing={key:string;generation:number;revision:number;rows:Row[];pasted:string;preview:EvaluationDraft|null;json:string|null;held:boolean};
@@ -24,10 +25,12 @@ export function EvaluationDraftView({context:input}:{context:ScopeDraftContext})
  const controls=useRef<HTMLFieldSetElement|null>(null),pending=useRef<AbortController|null>(null);
  const intents=useRef<PreparationInputIntents>({epoch:-1,controls:new Map()});
  const [owner,setOwner]=useState<object|null>(null),[editing,setEditing]=useState<Editing|null>(null);
+ const queryEpoch=useRef(0),queryRevision=useRef(0),queryIntents=useRef<PreparationInputIntents>({epoch:-1,controls:new Map()});
+ const [search,setSearch]=useState<{key:string;generation:number;query:string;fault:boolean}|null>(null);
  const [heldFeedback,setHeldFeedback]=useState<{key:string|null;generation:number;revision:number;value:EvaluationDraftFeedback|null}|null>(null);
  const [reading,setReading]=useState(false),[fileStatus,setFileStatus]=useState<"reading"|"held"|"busy"|"loaded"|null>(null);
  if(latest.current.key!==key){latest.current={key,generation:latest.current.generation+1};visit.current=null;}
- const generation=latest.current.generation,epoch=inputEpoch.current,frameRevision=revision.current;
+ const generation=latest.current.generation,epoch=inputEpoch.current,frameRevision=revision.current,searchEpoch=queryEpoch.current,searchRevision=queryRevision.current;
  const admitted=key!==null&&owner!==null&&visit.current===owner&&editing?.key===key&&editing.generation===generation;
  const state=admitted?editing:null,shown=state?.revision===revision.current?state:null;
  const hints=shown?.held&&heldFeedback?.key===key&&heldFeedback.generation===generation&&heldFeedback.revision===revision.current?heldFeedback.value:null;
@@ -37,6 +40,7 @@ export function EvaluationDraftView({context:input}:{context:ScopeDraftContext})
  useLayoutEffect(()=>()=>{visit.current=null;cancelLocalFileRead(pending.current);},[]);
  useEffect(()=>{
   setFileStatus(null);setHeldFeedback(null);
+  queryEpoch.current++;queryRevision.current++;setSearch(key===null?null:{key,generation,query:"",fault:false});
   if(key===null){visit.current=null;setOwner(null);setEditing(null);return;}
   const token={};visit.current=token;inputEpoch.current++;
   setEditing({key,generation,revision:++revision.current,rows:[],pasted:"",preview:null,json:null,held:false});setOwner(token);
@@ -47,7 +51,19 @@ export function EvaluationDraftView({context:input}:{context:ScopeDraftContext})
  if(!checked)return <section><h2>Evaluation preparation unavailable</h2><p>No captured evaluation worksheet is shown.</p></section>;
  const context=checked.context,claims=context.claims.map((claim,index)=>({...claim,statementNumber:index+1})).filter(claim=>claim.type==="evaluation");
  const choices=context.claims.flatMap((claim,statementIndex)=>claim.evidence.map((source,index)=>({key:scopeReferenceKey(claim.id,index+1),href:`#${recordedProposalReferenceAnchor("proposed",claim.id,index)}`,label:`Proposed statement ${statementIndex+1} · reference ${index+1}: ${source.title} · ${source.locator} · original role: ${source.relation}`})));
- const choiceKeys=new Set(choices.map(choice=>choice.key));
+ const query=admitted&&search?.key===key&&search.generation===generation?search.query:"";
+ const matches=search?.key===key&&search.generation===generation&&search.fault?null:matchingScopeReferenceKeys(context,query);
+ const matched=new Set(matches??[]),choiceKeys=new Set(choices.map(choice=>choice.key));
+ // Search has separate ownership: it changes choices, never worksheet values or File IO.
+ function changeQuery(event:{readonly currentTarget:HTMLInputElement}){
+  const owns=preparationInputIntent(queryIntents,searchEpoch,"query",()=>ownsInput()&&queryEpoch.current===searchEpoch);if(!owns)return;
+  try{const target=event.currentTarget;if(!owns())return;const value=target.value;if(!owns()||typeof value!=="string")return;
+   queryRevision.current++;setSearch(old=>owns()&&key!==null?{key,generation,query:value,fault:false}:old);
+  }catch{if(!owns())return;queryRevision.current++;setSearch(old=>owns()&&key!==null?{key,generation,query:old?.key===key?old.query:"",fault:true}:old);}
+ }
+ function clearQuery(){if(!ownsInput()||queryEpoch.current!==searchEpoch||queryRevision.current!==searchRevision||key===null)return;
+  queryEpoch.current++;queryRevision.current++;setSearch({key,generation,query:"",fault:false});
+ }
  function newRow(initial:Entry|null):Row{return{id:++serial.current,initial,references:Object.fromEntries(fields.map(field=>[field,initial?.fields[field]?.references.map(ref=>scopeReferenceKey(ref.claimId,ref.referenceNumber))??[]]))as Row["references"],referenceHeld:Object.fromEntries(fields.map(field=>[field,false]))as Row["referenceHeld"]};}
  function replace(rows:Row[],pasted="",preview:EvaluationDraft|null=null,json:string|null=null){
   if(!ownsAction()||key===null||rows.length>EVALUATION_DRAFT_ENTRIES)return;
@@ -55,7 +71,7 @@ export function EvaluationDraftView({context:input}:{context:ScopeDraftContext})
   setEditing(old=>current()?{key,generation,revision:next,rows,pasted,preview,json,held:false}:old);
  }
  function changed(){if(!ownsInput())return;const next=++revision.current;cancelLocalFileRead(pending.current);if(!current())return;setFileStatus(null);setHeldFeedback(null);setEditing(old=>current()&&old?{...old,revision:next,preview:null,json:null,held:false}:old);}
- function clear(){if(!ownsInput()||frameRevision!==revision.current||key===null)return;inputEpoch.current++;const next=++revision.current;cancelLocalFileRead(pending.current);if(!current())return;setFileStatus(null);setHeldFeedback(null);setEditing(old=>current()?{key,generation,revision:next,rows:[],pasted:"",preview:null,json:null,held:false}:old);}
+ function clear(){if(!ownsInput()||frameRevision!==revision.current||key===null)return;inputEpoch.current++;queryEpoch.current++;queryRevision.current++;setSearch({key,generation,query:"",fault:false});const next=++revision.current;cancelLocalFileRead(pending.current);if(!current())return;setFileStatus(null);setHeldFeedback(null);setEditing(old=>current()?{key,generation,revision:next,rows:[],pasted:"",preview:null,json:null,held:false}:old);}
  function changeReferences(id:number,field:EvaluationField,event:{readonly currentTarget:HTMLSelectElement}){
   const owns=preparationInputIntent(intents,epoch,`${id}:${field}:references`,ownsInput);if(!owns)return;
   const next=++revision.current;cancelLocalFileRead(pending.current);if(!owns())return;setFileStatus(null);setHeldFeedback(null);
@@ -77,7 +93,9 @@ export function EvaluationDraftView({context:input}:{context:ScopeDraftContext})
   if(!ownsAction()||key===null)return;const operation=++revision.current;inputEpoch.current++;const owns=()=>current()&&revision.current===operation;
   cancelLocalFileRead(pending.current);if(!owns())return;
   if(malformed){setHeldFeedback(null);setEditing(old=>owns()&&old?{...old,revision:operation,preview:null,json:null,held:false}:old);setFileStatus("held");return;}
-  setEditing(old=>owns()&&old?{...old,revision:operation,rows:[],pasted:"",preview:null,json:null,held:false}:old);setFileStatus(null);setHeldFeedback(null);
+  // Retire copied output immediately; retain editable rows and pasted text until
+  // a complete, exact, owned File reopening succeeds. Cancellation is not Clear.
+  setEditing(old=>owns()&&old?{...old,revision:operation,preview:null,json:null,held:false}:old);setFileStatus(null);setHeldFeedback(null);
   if(!file)return;
   if(pending.current!==null||physicalFileReads.has(key)){setFileStatus("busy");return;}
   const slot:Slot={released:false,waiters:[]};physicalFileReads.set(key,slot);let controller:AbortController|null=null;
@@ -99,14 +117,18 @@ export function EvaluationDraftView({context:input}:{context:ScopeDraftContext})
   <p>Private, editable, unauthenticated and unsent. Each supplied field needs 1–12 distinct exact references in this captured comparison, with wording up to 1,200 characters after trimming. Original support, conflict or context roles do not approve this interpretation. Blank fields remain unknown, not evidence of no limitation or no effect.</p>
   <p>Save evaluation preparation separately. The existing six-slot preparation packet is unchanged and does not accept this worksheet. Nothing is submitted, uploaded, archived or published; copied files remain outside this view after Clear or closing.</p>
   {!claims.length?<p>No proposed evaluation statement is available. Other statement types are not converted into causal findings.</p>:<>
+   <label htmlFor={`${prefix}-reference-search`}>Find evaluation reference choices</label>
+   <input id={`${prefix}-reference-search`} type="search" maxLength={80} value={query} disabled={!admitted} onChange={changeQuery}/>
+   <button type="button" disabled={!admitted||(!query&&!search?.fault)} onClick={clearQuery}>Show all evaluation reference choices</button>
+   <p id={`${prefix}-reference-search-status`} role="status" aria-live="polite">{matches===null?"Reference search is invalid or unavailable. Matching choices are withheld; selected choices remain.":`${matches.length} of ${choices.length} recorded reference choices match.`} Search the recorded statement type, period, title, locator or relation. All words must match one occurrence. Selected choices remain visible outside the filter with their original numbers. Searching changes no preparation values, references or review status.</p>
    <fieldset ref={controls} disabled={!admitted} aria-label="Unsent evaluation controls" onChange={changed}>
     {state?.rows.map((row,index)=>{const hint=hints?.entries[index];return <fieldset key={row.id}><legend>Evaluation entry {index+1}</legend>
      <label htmlFor={`${prefix}-${row.id}-claim`}>Associated proposed evaluation statement</label><select id={`${prefix}-${row.id}-claim`} name={`${row.id}.claim`} defaultValue={row.initial?.claimId??""} aria-invalid={hint?.statement||undefined} aria-describedby={hint?.statement?`${prefix}-${row.id}-statement-error`:undefined}><option value="">Choose a statement</option>{claims.map(claim=><option key={claim.id} value={claim.id}>Proposed statement {claim.statementNumber} · {claim.periodLabel}</option>)}</select>
      {hint?.statement&&<p id={`${prefix}-${row.id}-statement-error`}>Choose an associated evaluation statement from this captured comparison. Other statement types are not converted.</p>}
      {fields.map(field=><div key={field}><label htmlFor={`${prefix}-${row.id}-${field}`}>{evaluationFieldLabels[field]}</label><textarea id={`${prefix}-${row.id}-${field}`} name={`${row.id}.${field}`} maxLength={2400} defaultValue={row.initial?.fields[field]?.wording??""} aria-invalid={hint?.fields[field].wording||undefined} aria-describedby={hint?.fields[field].wording?`${prefix}-${row.id}-${field}-wording-error`:undefined}/>
       {hint?.fields[field].wording&&<p id={`${prefix}-${row.id}-${field}-wording-error`}>Supply nonblank wording of at most 1,200 characters, or clear both wording and references to leave this field unknown.</p>}
-      <label htmlFor={`${prefix}-${row.id}-${field}-refs`}>References for {evaluationFieldLabels[field]}</label><select id={`${prefix}-${row.id}-${field}-refs`} name={`${row.id}.${field}References`} multiple size={Math.max(1,Math.min(4,choices.length))} value={row.references[field]} onChange={event=>changeReferences(row.id,field,event)} aria-invalid={hint?.fields[field].references||shown&&row.referenceHeld[field]||undefined} aria-describedby={hint?.fields[field].references?`${prefix}-${row.id}-${field}-references-error`:undefined}>
-       {choices.map(choice=><option key={choice.key} value={choice.key}>{choice.label}</option>)}
+      <label htmlFor={`${prefix}-${row.id}-${field}-refs`}>References for {evaluationFieldLabels[field]}</label><select id={`${prefix}-${row.id}-${field}-refs`} name={`${row.id}.${field}References`} multiple size={Math.max(1,Math.min(4,choices.length))} value={row.references[field]} onChange={event=>changeReferences(row.id,field,event)} aria-invalid={hint?.fields[field].references||shown&&row.referenceHeld[field]||undefined} aria-describedby={`${prefix}-reference-search-status${hint?.fields[field].references?` ${prefix}-${row.id}-${field}-references-error`:""}`}>
+       {choices.filter(choice=>matched.has(choice.key)||row.references[field].includes(choice.key)).map(choice=><option key={choice.key} value={choice.key}>{choice.label}{!matched.has(choice.key)?" · Selected outside this filter":""}</option>)}
       </select>{hint?.fields[field].references&&<p id={`${prefix}-${row.id}-${field}-references-error`}>Choose 1–12 distinct exact captured references for this supplied wording, or clear both wording and references to leave it unknown. A reference choice does not approve its meaning.</p>}{shown&&row.referenceHeld[field]&&<p role="status">Reference selection held. Previous choices remain; choose up to twelve distinct recorded references explicitly.</p>}</div>)}
      {hint?.duplicate&&<p id={`${prefix}-${row.id}-duplicate-error`}>This entry repeats an earlier complete entry. Remove the duplicate or correct the intended description explicitly.</p>}
      <button id={`${prefix}-${row.id}-remove`} type="button" onClick={()=>replace(state.rows.filter(value=>value.id!==row.id))}>Remove evaluation entry {index+1}</button>

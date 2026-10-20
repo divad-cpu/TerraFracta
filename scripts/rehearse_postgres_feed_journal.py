@@ -23,6 +23,7 @@ import time
 from uuid import uuid4
 
 from scripts.feed_postgres_trial_cases import adversarial
+from scripts.docker_inspect_command_log import docker_inspect_command_kind, docker_inspect_log_record
 from workers.bounded_worker_process import communicate_bounded
 from workers.feed_discovery import FeedReceipt
 from workers.feed_postgres_contract import (
@@ -88,18 +89,27 @@ class FreshFeedPostgres:
         return self.docker+args[1:]
 
     def run(self,args,*,payload=b'',timeout=15,allowed=False):
+        # Capture the logical inspect command before the pinned socket rewrite
+        # or process callbacks; never infer logging scope from returned bytes.
+        logical_command=tuple(args)
+        inspect_command=docker_inspect_command_kind(logical_command) is not None
         args=self.command(args)
         self.counter+=1
-        if payload:
+        if payload and not inspect_command:
             path=self.proof/f'{self.counter:03d}_input.sql'
             with path.open('xb') as stream:stream.write(payload)
             path.chmod(0o600)
         process=subprocess.Popen(args,env=self.environment,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         result=communicate_bounded(process,payload,timeout=timeout,max_input=294912,max_stdout=131072,max_stderr=4096)
-        self.record(f'{self.counter:03d}_COMMAND',{'argv':args,'returncode':result.returncode,
-            'stdoutBytes':len(result.stdout),'stderrBytes':len(result.stderr),'inputBytes':len(payload),'inputSHA256':sha256(payload).hexdigest()})
-        # All SQL/data is fixed invented material. Never inspect Docker .Env.
-        for suffix,raw in [('stdout',result.stdout),('stderr',result.stderr)]:
+        if inspect_command:
+            self.record(f'{self.counter:03d}_COMMAND',json.loads(docker_inspect_log_record(logical_command,result)))
+            outputs=(('stdout',b'<omitted>\n'),('stderr',b'<omitted>\n'))
+        else:
+            self.record(f'{self.counter:03d}_COMMAND',{'argv':args,'returncode':result.returncode,
+                'stdoutBytes':len(result.stdout),'stderrBytes':len(result.stderr),'inputBytes':len(payload),'inputSHA256':sha256(payload).hexdigest()})
+            # Noninspect SQL/data remains fixed invented private evidence.
+            outputs=(('stdout',result.stdout),('stderr',result.stderr))
+        for suffix,raw in outputs:
             path=self.proof/f'{self.counter:03d}_{suffix}.txt'
             with path.open('xb') as f:f.write(raw)
             path.chmod(0o600)

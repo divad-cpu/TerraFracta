@@ -10,8 +10,9 @@ from hashlib import sha256
 import json,re
 from workers.private_extraction_held_proposal import (prepare_private_extraction_held_proposal,
     MAX_CONTEXT_BYTES,MAX_PAYLOAD_BYTES,MAX_PROVENANCE_BYTES,_json,_instant,_date)
-from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction
+from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction,_REOPEN_RECORDS
 from workers.closed_pair_channel import _json as strict_json
+from workers.dispatch_input_snapshot import freeze_input, thaw_input, _namespace
 from workers.feed_postgres_contract import _uuid,_utc,_time
 
 MAX_SELECTION_BYTES=2048
@@ -49,6 +50,30 @@ class ReobservedDetachedProposal:
     stored_at: datetime
     observed_at: datetime
     evidence_state: str='invented_historical_preparation_not_current_qualification_or_capture'
+
+
+_DETACHED_RECORDS = _REOPEN_RECORDS + (DetachedProposalParts, DetachedPreparationIntent,
+    PreparedDetachedProposal, ReobservedDetachedProposal)
+
+
+def _detached_operand(value):
+    # Custody deliberately reparses originals instead of adopting caller-derived
+    # result/store/stored objects. Preserve that contract without visiting their
+    # hooks; capture only the consumed original operands before any clock.
+    if type(value) is ReopenedPrivateExtractionResult:
+        ns, _ = _namespace(value, ReopenedPrivateExtractionResult)
+        return ReopenedPrivateExtractionResult(ns['request'], None, None, None,
+            ns['full_receipt'], ns['observed_at'])
+    if type(value) is PreparedDetachedProposal:
+        ns, _ = _namespace(value, PreparedDetachedProposal)
+        return PreparedDetachedProposal(ns['intent'], ns['parts'],
+            _detached_operand(ns['extraction']), ns['observed_at'], ns['evidence_state'])
+    return value
+
+
+def _snapshot_detached_values(*values):
+    operands = tuple(_detached_operand(value) for value in values)
+    return thaw_input(freeze_input(operands, _DETACHED_RECORDS))
 
 
 def part_bytes(parts):
@@ -93,6 +118,8 @@ def _confirmed_extraction(extraction):
 def prepare_detached_proposal_custody(extraction,context_raw,*,operation_id,observed_at):
     """Pre-write stable intent, including exact original context bytes."""
     try:
+        extraction, context_raw, operation_id, observed_at = _snapshot_detached_values(
+            extraction, context_raw, operation_id, observed_at)
         if not _uuid(operation_id) or not _utc(observed_at):raise ValueError
         extraction=_confirmed_extraction(extraction)
         proposal=prepare_private_extraction_held_proposal(extraction,context_raw,observed_at=observed_at)
@@ -105,6 +132,7 @@ def prepare_detached_proposal_custody(extraction,context_raw,*,operation_id,obse
 
 def recheck_prepared_detached_proposal(prepared):
     try:
+        prepared, = _snapshot_detached_values(prepared)
         if type(prepared) is not PreparedDetachedProposal:raise ValueError
         v=_match_parts(prepared.parts,prepared.intent)
         fresh=prepare_detached_proposal_custody(prepared.extraction,prepared.parts.context_raw,
@@ -125,6 +153,8 @@ def reobserve_detached_proposal(extraction,parts,intent,*,stored_at,observed_at)
     A later parse cannot invent an earlier actual observation or renew rights.
     """
     try:
+        extraction, parts, intent, stored_at, observed_at = _snapshot_detached_values(
+            extraction, parts, intent, stored_at, observed_at)
         v=_match_parts(parts,intent)
         if type(extraction) is not ReopenedPrivateExtractionResult or not _utc(stored_at) or not _utc(observed_at):raise ValueError
         extraction=_confirmed_extraction(extraction)

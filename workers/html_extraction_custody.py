@@ -12,7 +12,8 @@ import json
 import re
 
 from workers.html_original_custody import HtmlOriginalReopenExpected
-from workers.html_private_extraction import HtmlPrivateExtraction, prepare_html_private_extraction, recheck_html_private_extraction
+from workers.html_private_extraction import HtmlPrivateExtraction, prepare_html_private_extraction, recheck_html_private_extraction, _PRIVATE_RECORDS
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.stored_html_change import compile_stored_html_request
 from workers.model_proposal import AllowedEvidence, parse_untrusted_model_proposal
 from workers.closed_pair_channel import _json as strict_json
@@ -50,9 +51,13 @@ class PreparedHtmlExtractionStore:
     canonical_metadata: bytes = field(repr=False)
 
     def statement(self):
-        checked = prepare_html_extraction_store(self.result)
-        if type(self.canonical_metadata) is not bytes or checked != self: raise HtmlExtractionCustodyError('html_extraction_store_unavailable')
-        sql = HEAD+"set time zone 'UTC';begin isolation level read committed read write;select tf_html_extraction.store_result(decode("+_literal(_b64(self.canonical_metadata))+",'base64'),decode("+_literal(_b64(self.result.plan.request.body))+",'base64'),decode("+_literal(_b64(self.result.output_raw))+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        try:
+            expected, = _snapshot_custody_values(self)
+        except Exception:
+            raise HtmlExtractionCustodyError('html_extraction_store_unavailable') from None
+        checked = prepare_html_extraction_store(expected.result)
+        if type(expected.canonical_metadata) is not bytes or checked != expected: raise HtmlExtractionCustodyError('html_extraction_store_unavailable')
+        sql = HEAD+"set time zone 'UTC';begin isolation level read committed read write;select tf_html_extraction.store_result(decode("+_literal(_b64(checked.canonical_metadata))+",'base64'),decode("+_literal(_b64(checked.result.plan.request.body))+",'base64'),decode("+_literal(_b64(checked.result.output_raw))+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
         if len(sql.encode('utf8')) > MAX_CAPTURE_STATEMENT: raise HtmlExtractionCustodyError('html_extraction_store_unavailable')
         return sql
 
@@ -105,10 +110,15 @@ def _receipt(raw, operation, prepared_at, observed_at):
 
 def parse_stored_html_extraction(raw: bytes, expected: PreparedHtmlExtractionStore, *, observed_at: datetime) -> StoredHtmlExtraction:
     try:
+        try:
+            raw, expected, observed_at = _snapshot_custody_values(raw, expected, observed_at)
+        except Exception:
+            raise HtmlExtractionCustodyError('html_extraction_receipt_unavailable') from None
         if type(expected) is not PreparedHtmlExtractionStore or type(expected.canonical_metadata) is not bytes:
             raise ValueError
         checked = prepare_html_extraction_store(expected.result)
-        if checked != expected or not _utc(observed_at) or observed_at < expected.result.observed_at: raise ValueError
+        if checked != expected or not _utc(observed_at) or observed_at < checked.result.observed_at: raise ValueError
+        expected = checked
         value, metadata, request, output, stored = _receipt(raw, expected.result.operation_id, expected.result.prepared_at, observed_at)
         if metadata != expected.canonical_metadata or request != expected.result.plan.request.body or output != expected.result.output_raw: raise ValueError
         return StoredHtmlExtraction(value['operation_id'], value['artifact_id'], stored, expected.result, metadata)
@@ -129,17 +139,37 @@ class HtmlExtractionReopenExpected:
     observed_at: datetime
 
     def statement(self):
-        checked = prepare_html_extraction_reopen(operation_id=self.operation_id, artifact_id=self.artifact_id,
-            stored_at=self.stored_at, prepared_at=self.prepared_at, current_expected=self.current_expected,
-            previous_expected=self.previous_expected, maximum_output_tokens=self.maximum_output_tokens,
-            canonical_metadata=self.canonical_metadata, observed_at=self.observed_at)
-        if checked != self: raise HtmlExtractionCustodyError('html_extraction_reopen_unavailable')
-        return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_html_extraction.result_receipt("+_literal(self.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        try:
+            expected, = _snapshot_custody_values(self)
+        except Exception:
+            raise HtmlExtractionCustodyError('html_extraction_reopen_unavailable') from None
+        checked = prepare_html_extraction_reopen(operation_id=expected.operation_id, artifact_id=expected.artifact_id,
+            stored_at=expected.stored_at, prepared_at=expected.prepared_at, current_expected=expected.current_expected,
+            previous_expected=expected.previous_expected, maximum_output_tokens=expected.maximum_output_tokens,
+            canonical_metadata=expected.canonical_metadata, observed_at=expected.observed_at)
+        if checked != expected: raise HtmlExtractionCustodyError('html_extraction_reopen_unavailable')
+        return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_html_extraction.result_receipt("+_literal(checked.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+
+
+_CUSTODY_RECORDS = _PRIVATE_RECORDS + (PreparedHtmlExtractionStore,
+    StoredHtmlExtraction, HtmlExtractionReopenExpected)
+
+
+def _snapshot_custody_values(*values):
+    return thaw_input(freeze_input(values, _CUSTODY_RECORDS))
 
 
 def prepare_html_extraction_reopen(*, operation_id, artifact_id, stored_at, prepared_at,
         current_expected, previous_expected, maximum_output_tokens, canonical_metadata, observed_at):
     try:
+        try:
+            (operation_id, artifact_id, stored_at, prepared_at, current_expected,
+             previous_expected, maximum_output_tokens, canonical_metadata,
+             observed_at) = _snapshot_custody_values(operation_id, artifact_id, stored_at,
+                prepared_at, current_expected, previous_expected, maximum_output_tokens,
+                canonical_metadata, observed_at)
+        except Exception:
+            raise HtmlExtractionCustodyError('html_extraction_reopen_unavailable') from None
         if (not _uuid(operation_id) or not _uuid(artifact_id) or not _utc(stored_at) or not _utc(prepared_at)
                 or not _utc(observed_at) or not _tokens(maximum_output_tokens)
                 or type(current_expected) is not HtmlOriginalReopenExpected or type(previous_expected) is not HtmlOriginalReopenExpected
@@ -188,6 +218,11 @@ def reopen_html_extraction(raw: bytes, expected: HtmlExtractionReopenExpected, *
     This is historical custody, never current work or permission to resend.
     """
     try:
+        try:
+            raw, expected, current_receipt, previous_receipt, observed_at = _snapshot_custody_values(
+                raw, expected, current_receipt, previous_receipt, observed_at)
+        except Exception:
+            raise HtmlExtractionCustodyError('html_extraction_reopen_unavailable') from None
         if type(expected) is not HtmlExtractionReopenExpected: raise ValueError
         expected.statement()
         if not _utc(observed_at) or observed_at < expected.observed_at: raise ValueError

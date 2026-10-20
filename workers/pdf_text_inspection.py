@@ -114,14 +114,24 @@ def _native_reply(raw,original):
 
 def _cleanup(process):
     # The handle never escapes; every postspawn failure also owns retirement.
+    failed=False; cancellation=None
     try:
         if process.poll()is None:process.kill()
         process.wait(timeout=1)
-        if type(process.poll())is not int:raise ValueError
-    finally:
-        for name in('stdin','stdout','stderr'):
+        if type(process.poll())is not int:failed=True
+    except BaseException as error:
+        failed=True
+        if not isinstance(error,Exception):cancellation=error
+    for name in('stdin','stdout','stderr'):
+        try:
             stream=getattr(process,name,None)
             if stream is not None and not stream.closed:stream.close()
+            if stream is not None and not stream.closed:failed=True
+        except BaseException as error:
+            failed=True
+            if not isinstance(error,Exception)and cancellation is None:cancellation=error
+    if cancellation is not None:raise cancellation
+    if failed:raise PdfInspectionError('pdf_inspection_unavailable')from None
 
 
 def inspect_pdf_bytes(raw: bytes,document: PdfDocumentReceipt,*,observed_at: datetime):
@@ -131,7 +141,7 @@ def inspect_pdf_bytes(raw: bytes,document: PdfDocumentReceipt,*,observed_at: dat
     sandbox. The fixed worker uses BytesIO only and never opens PDF destinations.
     Original wall time includes validation, command construction and Popen.
     """
-    process=None
+    process=None; operation_cancellation=False
     try:
         began=time.monotonic()
         if type(began)not in(int,float)or not isfinite(began):raise ValueError
@@ -179,9 +189,17 @@ def inspect_pdf_bytes(raw: bytes,document: PdfDocumentReceipt,*,observed_at: dat
     except PdfInspectionInputError:raise
     except Exception:
         raise PdfInspectionError('pdf_inspection_unavailable')from None
+    except BaseException:
+        operation_cancellation=True
+        raise
     finally:
         if process is not None:
             try:
                 _cleanup(process)
                 remaining()
-            except Exception:raise PdfInspectionError('pdf_inspection_unavailable')from None
+            except BaseException as error:
+                # An escaping operation cancellation retains precedence over
+                # cleanup faults; ambient handled caller exceptions do not.
+                if not operation_cancellation:
+                    if isinstance(error,Exception):raise PdfInspectionError('pdf_inspection_unavailable')from None
+                    raise

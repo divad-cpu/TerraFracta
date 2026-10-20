@@ -12,9 +12,17 @@ from hashlib import sha256
 import base64
 import json
 from workers.feed_postgres_contract import _uuid, _utc, _time
-from workers.document_result_reopen import ReopenedDocumentResult
+from workers.document_result_reopen import ReopenedDocumentResult, DocumentReopenRequest
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
+from workers.feed_capture_reopen import ReopenedCapture, ReopenRequest
+from workers.feed_collection_inventory import InventoryRequest, InventoryCut, InventoryCursor, InventoryItem
+from workers.feed_window_lineage import InventedCollectionScope
+from workers.feed_postgres_contract import InventedPgCapture
+from workers.feed_postgres_processing import InventedPgOutcomeReceipt
+from workers.feed_discovery import FeedReceipt
+from workers.document_result_contract import InventedDocumentResult, FeedDocumentAssociation
 from workers.reopened_document_change import prepare_reopened_document_change
-from workers.passage_extraction_request import OfflineExtractionRequest, parse_extraction_request_proposal
+from workers.passage_extraction_request import OfflineExtractionRequest, parse_extraction_request_proposal, _REQUEST_RECORDS
 from workers.model_proposal import ModelProposal
 
 MAX_PRIVATE_RESULT_INPUT = 256 * 1024
@@ -41,6 +49,17 @@ class PrivateExtractionResult:
     evidence_state: str = 'offline_exact_request_output_unverified_proposal_only'
 
 
+_PRIVATE_RESULT_RECORDS = _REQUEST_RECORDS + (PrivateExtractionResult,
+    ReopenedDocumentResult, DocumentReopenRequest, ReopenedCapture, ReopenRequest,
+    InventoryRequest, InventoryCut, InventoryCursor, InventoryItem,
+    InventedCollectionScope, InventedPgCapture, InventedPgOutcomeReceipt,
+    FeedReceipt, InventedDocumentResult, FeedDocumentAssociation, ModelProposal)
+
+
+def _snapshot_private_values(*values):
+    return thaw_input(freeze_input(values, _PRIVATE_RESULT_RECORDS))
+
+
 def _canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode('utf8')
 
@@ -55,6 +74,14 @@ def prepare_private_extraction_result(current, current_receipt, previous, previo
         request, output_raw, operation_id, prepared_at, observed_at, maximum_output_tokens):
     """Reconfirm complete original evidence; never adopt a supplied proposal."""
     try:
+        try:
+            (current, current_receipt, previous, previous_receipt, request,
+             output_raw, operation_id, prepared_at, observed_at,
+             maximum_output_tokens) = _snapshot_private_values(current,
+                current_receipt, previous, previous_receipt, request, output_raw,
+                operation_id, prepared_at, observed_at, maximum_output_tokens)
+        except Exception:
+            raise PrivateExtractionResultError('private_extraction_result_unavailable') from None
         if (not _uuid(operation_id) or not _utc(observed_at) or not _utc(prepared_at)
                 or prepared_at > observed_at): raise ValueError
         pair = prepare_reopened_document_change(current, current_receipt, previous, previous_receipt,
@@ -84,6 +111,10 @@ def recheck_private_extraction_result(expected):
     try:
         if type(expected) is not PrivateExtractionResult or type(expected.canonical_input) is not bytes:
             raise ValueError
+        try:
+            expected, = _snapshot_private_values(expected)
+        except Exception:
+            raise PrivateExtractionResultError('private_extraction_result_unavailable') from None
         checked = prepare_private_extraction_result(expected.current, expected.current_receipt,
             expected.previous, expected.previous_receipt, request=expected.request, output_raw=expected.output_raw,
             operation_id=expected.operation_id, prepared_at=expected.prepared_at, observed_at=expected.observed_at,

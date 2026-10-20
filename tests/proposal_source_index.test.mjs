@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {loadTsx} from './helpers/tsx_loader.mjs';
+import {assertUnsentProposalControls} from './helpers/inspection_controls.mjs';
 import {proposalReport,proposalScope,proposalId} from './helpers/proposal_fixture.mjs';
 import {encodeProposalCapture,parseCapturedProposalEnvelope} from '../src/server/proposal-capture.ts';
 const {ProposalComparisonView}=loadTsx(new URL('../src/operator-proposal-view.tsx',import.meta.url));
@@ -52,9 +53,7 @@ test('escaped titles and unknown language remain inspectable without outbound or
   assert.ok(body,'index exists');assert.ok(body.includes('&lt;script&gt;source-canary'));assert.ok(body.includes('&lt;em&gt;position'));assert.ok(!html.includes('<script>'));
   assert.ok(html.includes('Language not recorded'));assert.ok(html.includes('Unreviewed.'));assert.ok(html.includes('Current public eligibility and source health were not checked'));
   for(const forbidden of ['<form','href="https:','rawArchivePath','Approve proposal','Publish proposal'])assert.ok(!html.includes(forbidden),forbidden);
-  const buttons=[...html.matchAll(/<button([^>]*)>([^<]+)<\/button>/g)];
-  assert.deepEqual(buttons.map(row=>row[2]),['Clear reference finder','Show all reference choices','Reopen scope preparation','Review scope draft','Clear scope draft','Show all responsibility reference choices','Add responsibility entry','Review responsibility draft','Clear responsibility draft','Reopen responsibility preparation','Show all indicator reference choices','Add indicator entry','Inspect unsent indicator draft','Clear indicator draft','Reopen indicator preparation','Inspect combined preparation packet','Clear preparation packet','Read saved preparation packet','Reopen preparation packet','Review separate evaluation bundle','Clear separate evaluation bundle','Reopen separate evaluation bundle']);
-  assert.ok(buttons.every(row=>row[1].includes('disabled=""')),'initial local preparation controls are disabled');
+  assertUnsentProposalControls(html);
   assert.ok(html.includes('Nothing is submitted, saved to the archive or published'));targets(html);
 });
 test('held corrupt foreign and changed records expose neither index nor receipt navigation',()=>{

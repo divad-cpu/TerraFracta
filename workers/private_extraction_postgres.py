@@ -9,7 +9,8 @@ from datetime import datetime
 import base64
 import json
 from workers.private_extraction_result import (PrivateExtractionResult,
-    recheck_private_extraction_result, _canonical)
+    recheck_private_extraction_result, _canonical, _PRIVATE_RESULT_RECORDS)
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.feed_postgres_contract import (HEAD, COMMIT_MARKER, MAX_CAPTURE_STATEMENT,
     MAX_CAPTURE_OUTPUT, _uuid, _utc, _time, _parse_time)
 from workers.closed_pair_channel import _json as strict_json
@@ -27,8 +28,8 @@ class PrivateExtractionStoreRequest:
     evidence_state: str = 'invented_private_extraction_store_request_only'
 
     def statement(self):
-        _recheck(self)
-        sql = HEAD+"set time zone 'UTC';begin;select tf_private_extraction.store_result("+_literal(self.canonical_metadata.decode('utf8'))+"::jsonb,decode("+_literal(base64.b64encode(self.result.request.body).decode('ascii'))+",'base64'),decode("+_literal(base64.b64encode(self.result.output_raw).decode('ascii'))+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        checked = _recheck(self)
+        sql = HEAD+"set time zone 'UTC';begin;select tf_private_extraction.store_result("+_literal(checked.canonical_metadata.decode('utf8'))+"::jsonb,decode("+_literal(base64.b64encode(checked.result.request.body).decode('ascii'))+",'base64'),decode("+_literal(base64.b64encode(checked.result.output_raw).decode('ascii'))+",'base64'));commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
         if len(sql.encode('utf8')) > MAX_CAPTURE_STATEMENT:
             raise PrivateExtractionPostgresError('private_extraction_store_input_unavailable')
         return sql
@@ -42,6 +43,10 @@ class StoredPrivateExtractionResult:
     request_sha256: str
     output_sha256: str
     evidence_state: str = 'invented_exact_request_output_stored_still_unverified'
+
+
+def _snapshot_store_values(*values):
+    return thaw_input(freeze_input(values, _PRIVATE_RESULT_RECORDS + (PrivateExtractionStoreRequest,)))
 
 
 def _shape(metadata, request_raw, output_raw):
@@ -68,19 +73,27 @@ def prepare_private_extraction_store(result):
 def _recheck(expected):
     if type(expected) is not PrivateExtractionStoreRequest or type(expected.canonical_metadata) is not bytes:
         raise PrivateExtractionPostgresError('private_extraction_store_input_unavailable')
+    try:
+        expected, = _snapshot_store_values(expected)
+    except Exception:
+        raise PrivateExtractionPostgresError('private_extraction_store_input_unavailable') from None
     checked = prepare_private_extraction_store(expected.result)
     if checked != expected: raise PrivateExtractionPostgresError('private_extraction_store_input_unavailable')
     return checked
 
 
 def private_extraction_read_statement(expected):
-    _recheck(expected)
+    expected = _recheck(expected)
     return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_private_extraction.result_receipt("+_literal(expected.result.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
 
 
 def parse_stored_private_extraction_result(raw, expected, *, observed_at):
     try:
-        _recheck(expected)
+        try:
+            raw, expected, observed_at = _snapshot_store_values(raw, expected, observed_at)
+        except Exception:
+            raise PrivateExtractionPostgresError('private_extraction_stored_result_unavailable') from None
+        expected = _recheck(expected)
         if (type(raw) is not bytes or not 1 <= len(raw) <= MAX_CAPTURE_OUTPUT or not _utc(observed_at)
                 or observed_at < expected.result.observed_at): raise ValueError
         value = strict_json(raw)

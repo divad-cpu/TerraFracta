@@ -9,7 +9,7 @@ from datetime import datetime,date,timedelta
 from hashlib import sha256
 import json,re
 from workers.private_extraction_report import private_extraction_review_report
-from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction
+from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction,_snapshot_reopen_values
 from workers.feed_postgres_contract import _uuid,_time
 
 MAX_CONTEXT_BYTES=32768
@@ -57,6 +57,8 @@ def prepare_private_extraction_held_proposal(reopened,independent_context: bytes
     supplied independently. Preserve all three returned byte strings together.
     """
     try:
+        reopened, independent_context, observed_at = _snapshot_reopen_values(
+            reopened, independent_context, observed_at)
         if (type(reopened) is not ReopenedPrivateExtractionResult or type(independent_context) is not bytes
                 or not 1<=len(independent_context)<=MAX_CONTEXT_BYTES or type(observed_at) is not datetime
                 or observed_at.utcoffset()!=timedelta(0)):raise ValueError

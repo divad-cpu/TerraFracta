@@ -1,9 +1,9 @@
 import { sourceMonitoringSnapshot } from "./source-monitoring-snapshot.ts";
 import { sourceMonitoringFilter } from "./source-monitoring-filter.ts";
 
-const registrationLabels = { candidate: "Candidate", approved: "Approved registration", suspended: "Suspended", retired: "Retired" };
+export const registrationLabels = { candidate: "Candidate", approved: "Approved registration", suspended: "Suspended", retired: "Retired" };
 const permissionLabels = { allowed: "Fetch allowed in this observation", denied: "Fetch denied in this observation", unresolved: "Fetch permission unresolved" };
-const dueLabels = { unknown: "Due time not recorded", not_due: "Not due at this observation", due: "Due at this observation" };
+export const dueLabels = { unknown: "Due time not recorded", not_due: "Not due at this observation", due: "Due at this observation" };
 const checkLabels = {
   not_recorded: "No check recorded", failed: "Recorded check failed", coverage_unknown: "Coverage unknown",
   incomplete: "Incomplete recorded check", complete_changed: "Recorded check completed; change reported",
@@ -19,7 +19,8 @@ export function SourceMonitoringView({ input, filter = { check: "", permission: 
   const selected = sourceMonitoringFilter(filter);
   if (selected === null) return <section><h2>Check the display filters</h2><p>No partial source list or zero-failure conclusion is shown.</p></section>;
   const visible = report.rows.map((source, index) => ({ source, index })).filter(({ source }) =>
-    (!selected.check || source.check === selected.check) && (!selected.permission || source.fetchPermission === selected.permission));
+    (!selected.check || source.check === selected.check) && (!selected.permission || source.fetchPermission === selected.permission) &&
+    (!selected.registration || source.registrationState === selected.registration) && (!selected.due || source.due === selected.due));
   return <section aria-labelledby="source-monitoring-heading">
     <h2 id="source-monitoring-heading">Supplied invented observations</h2>
     <p>Entirely invented. Registration, fetch permission and due observations dated {time(report.observedAt)}. Each recorded check has its own date below. This is not a live assessment; rendering the page does not check any source.</p>

@@ -4,7 +4,8 @@ from datetime import datetime
 import base64
 
 from workers.html_proposal_custody import (HtmlPreparationIntent,PreparedHtmlProposal,ReobservedHtmlProposal,
-    intent_metadata,_match_parts,recheck_prepared_html_proposal,reobserve_html_proposal)
+    intent_metadata,_match_parts,recheck_prepared_html_proposal,reobserve_html_proposal,_PREPARATION_RECORDS)
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.detached_proposal_custody import DetachedProposalParts,part_bytes,PART_LIMITS
 from workers.private_extraction_held_proposal import _json,_instant
 from workers.closed_pair_channel import _json as strict_json
@@ -21,7 +22,8 @@ class HtmlProposalStoreRequest:
     def statement(self):
         try:
             if type(self) is not HtmlProposalStoreRequest:raise ValueError
-            return _statement(prepare_html_proposal_store(self.prepared).prepared)
+            expected, = _snapshot_proposal_values(self)
+            return _statement(prepare_html_proposal_store(expected.prepared).prepared)
         except Exception:raise HtmlProposalPostgresError('html_proposal_store_unavailable') from None
 
 
@@ -41,9 +43,11 @@ class HtmlPreparationReopenExpected:
     observed_at:datetime
     def statement(self):
         try:
-            checked=prepare_html_preparation_reopen(intent=self.intent,artifact_id=self.artifact_id,stored_at=self.stored_at,observed_at=self.observed_at)
-            if type(self) is not HtmlPreparationReopenExpected or self!=checked:raise ValueError
-            operation=intent_metadata(self.intent)['operation_id']
+            if type(self) is not HtmlPreparationReopenExpected:raise ValueError
+            expected, = _snapshot_proposal_values(self)
+            checked=prepare_html_preparation_reopen(intent=expected.intent,artifact_id=expected.artifact_id,stored_at=expected.stored_at,observed_at=expected.observed_at)
+            if expected!=checked:raise ValueError
+            operation=intent_metadata(checked.intent)['operation_id']
             return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_html_preparation.preparation_receipt("+_literal(operation)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
         except Exception:raise HtmlProposalPostgresError('html_proposal_read_unavailable') from None
 
@@ -55,6 +59,14 @@ class ReopenedStoredHtmlProposal:
     full_receipt:bytes=field(repr=False)
     observed_at:datetime
     evidence_state:str='invented_html_reopened_preparation_not_current_qualification_or_capture'
+
+
+_PROPOSAL_RECORDS = _PREPARATION_RECORDS + (HtmlProposalStoreRequest,
+    StoredHtmlProposal, HtmlPreparationReopenExpected, ReopenedStoredHtmlProposal)
+
+
+def _snapshot_proposal_values(*values):
+    return thaw_input(freeze_input(values, _PROPOSAL_RECORDS))
 
 
 def _shape(parts,intent,*,artifact_id,stored_at):
@@ -84,6 +96,7 @@ def prepare_html_proposal_store(prepared):
 
 def prepare_html_preparation_reopen(*,intent,artifact_id,stored_at,observed_at):
     try:
+        intent, artifact_id, stored_at, observed_at = _snapshot_proposal_values(intent, artifact_id, stored_at, observed_at)
         metadata=intent_metadata(intent)
         if (not _uuid(artifact_id) or not _utc(stored_at) or not _utc(observed_at)
                 or not _instant(metadata['prepared_at'])<=stored_at<=observed_at):raise ValueError
@@ -111,6 +124,7 @@ def _receipt(raw,intent):
 
 def parse_stored_html_proposal(raw,request,*,observed_at):
     try:
+        raw, request, observed_at = _snapshot_proposal_values(raw, request, observed_at)
         if type(request) is not HtmlProposalStoreRequest:raise ValueError
         prepared=prepare_html_proposal_store(request.prepared).prepared
         parts,stored=_receipt(raw,prepared.intent)
@@ -123,6 +137,9 @@ def parse_stored_html_proposal(raw,request,*,observed_at):
 def reopen_stored_html_proposal(raw,expected,*,extraction_receipt,extraction_expected,current_receipt,previous_receipt,observed_at):
     """Require independently retained preparation identity and three fresh inputs."""
     try:
+        (raw, expected, extraction_receipt, extraction_expected, current_receipt,
+         previous_receipt, observed_at) = _snapshot_proposal_values(raw, expected,
+            extraction_receipt, extraction_expected, current_receipt, previous_receipt, observed_at)
         if type(expected) is not HtmlPreparationReopenExpected or not _utc(observed_at) or observed_at<expected.observed_at:raise ValueError
         expected.statement()
         parts,stored=_receipt(raw,expected.intent)

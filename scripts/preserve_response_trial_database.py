@@ -15,6 +15,7 @@ import tarfile
 from scripts.prepare_response_reservation_trial import TRIAL,CLI
 from scripts.fictional_response_backend import verify_target,CONTAINER
 from scripts.private_diagnostic_redaction import sanitize_docker_metadata
+from scripts.docker_inspect_command_log import docker_inspect_log_record
 
 IMAGE='sha256:80d7b27c3e8d77cfa7226eee9508671796da214781ff15a35b3670d7ad5ee453'
 VOLUME='supabase_db_terrafracta-response30-20261001'
@@ -24,7 +25,8 @@ DEST=TRIAL/'database-preservation'
 def run(args,name,timeout=30,allow_failure=False):
     p=subprocess.run(args,capture_output=True,timeout=timeout)
     file=DEST/(name+'.log');fd=os.open(file,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-    with os.fdopen(fd,'wb') as f:f.write(sanitize_docker_metadata(p.stdout.decode()).encode()+b'\n'+p.stderr)
+    record=docker_inspect_log_record(args,p)
+    with os.fdopen(fd,'wb') as f:f.write(record.encode() if record is not None else sanitize_docker_metadata(p.stdout.decode()).encode()+b'\n'+p.stderr)
     if p.returncode and not allow_failure:raise RuntimeError('Private preservation step failed: '+name)
     return p.stdout
 

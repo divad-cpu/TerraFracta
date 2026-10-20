@@ -146,7 +146,9 @@ export function IssueScopeDraftView({ context: input }: { context: ScopeDraftCon
     const ownsRead = () => current() && contentRevision.current === readRevision;
     cancelLocalFileRead(pending.current); if (!ownsRead()) return;
     if (malformedSelection) { setPreview(null); setHeld(null); setFileState({ key, state: "held" }); return; }
-    fieldRevision.current = 0; setEditing(null); setPreview(null); setPasted(null); setHeld(null); setFileState(null);
+    // A failed or cancelled File choice is not Clear. Retire output while
+    // retaining editable fields, their revision and independently pasted text.
+    setPreview(null); setHeld(null); setFileState(null);
     if (!file) return;
     if (pending.current !== null || physicalScopeFileReads.has(key)) { setFileState({ key, state: "busy" }); return; }
     // Reserve before controller, timer or File observations. A fresh same-key
@@ -177,7 +179,7 @@ export function IssueScopeDraftView({ context: input }: { context: ScopeDraftCon
         if (candidate === null) throw Error("Scope file refused");
         return candidate;
       }, undefined, () => { cancelLocalFileRead(controller); if (ownsRead()) setFileState({ key, state: "held" }); });
-      if (ownsRead()) { install(candidate); setPreview({ key, candidate }); setFileState({ key, state: "loaded" }); }
+      if (ownsRead()) { install(candidate); setPasted(null); setPreview({ key, candidate }); setFileState({ key, state: "loaded" }); }
     } catch { if (ownsRead()) setFileState({ key, state: "held" }); }
     finally {
       if (physicalScopeFileReads.get(key) === slot) physicalScopeFileReads.delete(key);

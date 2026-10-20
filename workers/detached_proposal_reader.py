@@ -7,7 +7,8 @@ Separate original/artifact/preparation transactions are not one snapshot.
 """
 from dataclasses import dataclass,field
 from workers.bounded_worker_process import WorkerOutput
-from workers.detached_proposal_custody import DetachedPreparationIntent,intent_metadata
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
+from workers.detached_proposal_custody import DetachedPreparationIntent,intent_metadata,_snapshot_detached_values
 from workers.detached_proposal_postgres import (ReopenedStoredDetachedProposal,detached_proposal_read_statement,parse_reopened_detached_proposal)
 from workers.private_extraction_reopen import ReopenedPrivateExtractionResult,parse_reopened_private_extraction
 from workers.feed_postgres_contract import committed_pg_json,_utc,_parse_time
@@ -26,6 +27,7 @@ class DetachedProposalRead:
 def read_detached_proposal(extraction,intent,*,query,utc_now) -> DetachedProposalRead:
     """Preflight full artifact and retained intent before one fixed SQL read."""
     try:
+        extraction, intent = _snapshot_detached_values(extraction, intent)
         if (type(extraction) is not ReopenedPrivateExtractionResult or type(intent) is not DetachedPreparationIntent
                 or not callable(query) or not callable(utc_now)):raise ValueError
         metadata=intent_metadata(intent)
@@ -38,11 +40,13 @@ def read_detached_proposal(extraction,intent,*,query,utc_now) -> DetachedProposa
         last=None
         def tick():
             nonlocal last
-            at=utc_now()
+            at=thaw_input(freeze_input(utc_now()))
             if (not _utc(at) or at<confirmed.observed_at or at<prepared_at or (last is not None and at<last)):raise ValueError
             last=at;return at
         tick();statement=detached_proposal_read_statement(intent);tick()
-        output=query(statement);at=tick()
+        output=query(statement)
+        output=thaw_input(freeze_input(output, (WorkerOutput,)))
+        at=tick()
         if type(output) is not WorkerOutput:raise ValueError
         raw=committed_pg_json(output.stdout,output.stderr,output.returncode)
         return DetachedProposalRead(parse_reopened_detached_proposal(raw,intent,confirmed,observed_at=at))

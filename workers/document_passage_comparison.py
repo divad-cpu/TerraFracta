@@ -7,8 +7,9 @@ changes require explicit identity review, never inferred redirects/canonicality.
 from dataclasses import dataclass,field
 from datetime import datetime
 
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.document_passage_binding import (
-    PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,BoundDocumentPassages,bind_document_passages,
+    PlainDocumentReceipt,DocumentPassageBinding,DocumentSpanMap,DocumentByteSpan,BoundDocumentPassages,bind_document_passages,
 )
 from workers.passage_model_plan import PassageChange
 from workers.prose_passage_selection import PassageSelection,select_changed_passages
@@ -49,6 +50,12 @@ def compare_document_passages(current: DocumentPassageCapture,previous: Document
     their authority. The returned change is for the existing offline planner.
     """
     try:
+        # Freeze both vintages together; binding the first may call a UTC hook.
+        try:
+            current, previous, observed_at = thaw_input(freeze_input((current, previous, observed_at),
+                (DocumentPassageCapture, PlainDocumentReceipt, DocumentPassageBinding, DocumentSpanMap, DocumentByteSpan)))
+        except Exception:
+            raise DocumentComparisonError('document_comparison_unavailable') from None
         now=_bind(current,observed_at)
         before=None if previous is None else _bind(previous,observed_at)
         if before is not None:

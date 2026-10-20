@@ -11,7 +11,7 @@ const { ProposalComparisonView } = loadTsx(new URL("../src/operator-proposal-vie
 const render = (report, selection = proposalScope(), kind = "ok") => renderToStaticMarkup(createElement(ProposalComparisonView, { decision: { kind, report }, selection }));
 const sections = html => /<nav[^>]*aria-label="Sections of this captured comparison"[\s\S]*?<\/nav>/.exec(html)?.[0];
 const expectedSections = ["proposal-hold-reasons", "proposal-coverage", "proposal-reference-finder", "proposal-source-versions",
-  "proposal-statement-types", "proposal-scope-preparation", "proposal-responsibility-preparation", "proposal-policy-event-preparation", "proposal-funding-preparation", "proposal-indicator-preparation", "proposal-delivery-preparation", "proposal-planned-milestone-preparation", "proposal-evaluation-preparation", "proposal-preparation-packet", "proposal-evaluation-bundle",
+  "proposal-statement-types", "proposal-scope-preparation", "proposal-responsibility-preparation", "proposal-policy-event-preparation", "proposal-funding-preparation", "proposal-indicator-preparation", "proposal-delivery-preparation", "proposal-planned-milestone-preparation", "proposal-evaluation-preparation", "proposal-preparation-packet", "proposal-evaluation-bundle", "proposal-complete-preparation",
   "proposal-changes-heading", "proposal-base-snapshot", "proposal-proposed-snapshot"];
 
 test("a checked captured comparison offers native links to its long inspection sections", () => {

@@ -12,6 +12,7 @@ from hashlib import sha256
 import json
 from re import fullmatch
 
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.public_source_url import public_https_source_url
 from workers.prose_passage_selection import (
     MAX_PASSAGES,MAX_PASSAGE_BYTES,MAX_CAPTURE_TEXT_BYTES,
@@ -103,6 +104,13 @@ def bind_document_passages(raw: bytes,document: PlainDocumentReceipt,*,binding: 
     Empty maps explicitly select no passages; they never imply full coverage.
     """
     try:
+        # Copy all original assertions before any supplied timezone callback.
+        try:
+            raw, document, binding, mapping, observed_at = thaw_input(freeze_input(
+                (raw, document, binding, mapping, observed_at),
+                (PlainDocumentReceipt, DocumentPassageBinding, DocumentSpanMap, DocumentByteSpan)))
+        except Exception:
+            raise DocumentPassageError('document_passage_binding_invalid') from None
         if (type(raw) is not bytes or not 1<=len(raw)<=MAX_DOCUMENT_BYTES or type(document) is not PlainDocumentReceipt
                 or type(binding) is not DocumentPassageBinding or type(mapping) is not DocumentSpanMap
                 or not _utc(observed_at) or not _utc(document.retrieved_at) or document.retrieved_at>observed_at

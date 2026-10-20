@@ -14,6 +14,7 @@ from workers.feed_postgres_contract import HEAD,COMMIT_MARKER,MAX_CAPTURE_OUTPUT
 from workers.feed_postgres_processing import InventedPgOutcomeReceipt,_event
 from workers.feed_window_lineage import InventedCollectionScope,_scope,MAX_WINDOWS
 from workers.pair_native_sql import _literal
+from workers.dispatch_input_snapshot import freeze_input,thaw_input
 
 MAX_INVENTORY_ITEMS=20
 MAX_INVENTORY_INPUT=4096
@@ -51,10 +52,14 @@ class InventoryRequest:
     canonical_input: bytes
 
     def statement(self):
-        if type(self.canonical_input) is not bytes:raise FeedInventoryError('inventory_request_binding_invalid')
-        checked=prepare_inventory_request(self.scope,item_limit=self.item_limit,cut=self.cut,after=self.after)
-        if checked!=self:raise FeedInventoryError('inventory_request_binding_invalid')
-        statement=HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_feed_inventory.page("+_literal(self.canonical_input.decode())+"::jsonb);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        try:
+            expected, = _snapshot_inventory_inputs(self)
+        except Exception:
+            raise FeedInventoryError('inventory_request_binding_invalid') from None
+        if type(expected.canonical_input) is not bytes:raise FeedInventoryError('inventory_request_binding_invalid')
+        checked=prepare_inventory_request(expected.scope,item_limit=expected.item_limit,cut=expected.cut,after=expected.after)
+        if checked!=expected:raise FeedInventoryError('inventory_request_binding_invalid')
+        statement=HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_feed_inventory.page("+_literal(checked.canonical_input.decode())+"::jsonb);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
         if len(statement.encode())>MAX_INVENTORY_STATEMENT:raise FeedInventoryError('inventory_statement_limit')
         return statement
 
@@ -91,6 +96,13 @@ class CollectionInventoryPage:
     evidence_state: str = 'invented_captured_prefix_current_states_per_page_only'
 
 
+_INVENTORY_INPUT_RECORDS = (InventoryRequest, InventoryCut, InventoryCursor, InventedCollectionScope)
+
+
+def _snapshot_inventory_inputs(*values):
+    return thaw_input(freeze_input(values, _INVENTORY_INPUT_RECORDS))
+
+
 def _canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()
 def _integer(value,maximum):return type(value) is int and 1<=value<=maximum
 
@@ -110,6 +122,10 @@ def _cursor(value,cut):
 
 def prepare_inventory_request(scope,*,item_limit=MAX_INVENTORY_ITEMS,cut=None,after=None):
     try:
+        try:
+            scope, item_limit, cut, after = _snapshot_inventory_inputs(scope, item_limit, cut, after)
+        except Exception:
+            raise FeedInventoryError('inventory_request_unavailable') from None
         _scope(scope)
         if not _integer(item_limit,MAX_INVENTORY_ITEMS) or (cut is None and after is not None):raise ValueError
         payload={'scope':asdict(scope),'item_limit':item_limit,'cut':None if cut is None else _cut(cut),
@@ -174,6 +190,10 @@ def _item(row,scope,cut,observed_at):
 
 def parse_collection_inventory_page(raw,expected,*,observed_at):
     try:
+        try:
+            raw, expected, observed_at = _snapshot_inventory_inputs(raw, expected, observed_at)
+        except Exception:
+            raise FeedInventoryError('inventory_observation_unavailable') from None
         if type(expected) is not InventoryRequest:raise ValueError
         expected.statement()
         if type(raw) is not bytes or not 1<=len(raw)<=MAX_CAPTURE_OUTPUT or not _utc(observed_at):raise ValueError

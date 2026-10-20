@@ -29,6 +29,9 @@ export const weeklyRehearsalObservationSchema = z.strictObject({
   realScheduleEnabled: z.literal(false), trustedRunLedger: z.literal(false), sourceRequests: z.literal(0),
   publicationEnabled: z.literal(false), alertsSent: z.literal(0),
 }).superRefine((value, context) => {
+  // Format/refinement issues are continuable in Zod. Calendar and microsecond
+  // helpers require already validated UTC leaves, even during safeParse.
+  if (!utc.safeParse(value.observedAt).success || !utc.safeParse(value.dueAt).success) return;
   const dueKey = osloScheduledKey(value.dueAt, "fictional-country");
   const expected = `weekly:${value.windowKey.slice(0, 4)}w${value.windowKey.slice(6)}:fictional-country`;
   if (dueKey !== expected || value.windowKey !== observationWindow(value.observedAt) ||

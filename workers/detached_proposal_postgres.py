@@ -3,8 +3,10 @@ from dataclasses import dataclass,field
 from datetime import datetime
 import base64
 from workers.detached_proposal_custody import (DetachedProposalParts,DetachedPreparationIntent,PreparedDetachedProposal,
- ReobservedDetachedProposal,PART_LIMITS,part_bytes,intent_metadata,recheck_prepared_detached_proposal,reobserve_detached_proposal)
+ ReobservedDetachedProposal,PART_LIMITS,part_bytes,intent_metadata,recheck_prepared_detached_proposal,reobserve_detached_proposal,
+ _DETACHED_RECORDS, _detached_operand)
 from workers.private_extraction_held_proposal import _json
+from workers.dispatch_input_snapshot import freeze_input, thaw_input, _namespace
 from workers.closed_pair_channel import _json as strict_json
 from workers.feed_postgres_contract import HEAD,COMMIT_MARKER,MAX_CAPTURE_OUTPUT,MAX_CAPTURE_STATEMENT,_uuid,_utc,_parse_time,_time
 from workers.pair_native_sql import _literal
@@ -41,6 +43,19 @@ class ReopenedStoredDetachedProposal:
     evidence_state: str='invented_reopened_detached_preparation_not_current_qualification_or_capture'
 
 
+def _snapshot_postgres_values(*values):
+    operands = []
+    for value in values:
+        if type(value) is DetachedProposalStoreRequest:
+            ns, _ = _namespace(value, DetachedProposalStoreRequest)
+            value = DetachedProposalStoreRequest(_detached_operand(ns['prepared']))
+        else:
+            value = _detached_operand(value)
+        operands.append(value)
+    return thaw_input(freeze_input(tuple(operands), _DETACHED_RECORDS + (DetachedProposalStoreRequest,
+        StoredDetachedProposal, ReopenedStoredDetachedProposal)))
+
+
 def _shape(parts,intent,*,artifact_id,stored_at):
     raw=part_bytes(parts);v=intent_metadata(intent)
     return dict(schema_version=1,kind='invented_detached_preparation_stored',operation_id=v['operation_id'],artifact_id=artifact_id,
@@ -59,6 +74,7 @@ def prepare_detached_proposal_store(prepared):
 
 def _recheck(request):
     if type(request) is not DetachedProposalStoreRequest:raise ValueError
+    request, = _snapshot_postgres_values(request)
     checked=prepare_detached_proposal_store(request.prepared)
     return checked.prepared
 
@@ -89,6 +105,7 @@ def _receipt(raw,intent):
 def parse_stored_detached_proposal(raw,request,*,observed_at):
     """Warm exact store acknowledgement, not a cold original read."""
     try:
+        raw, request, observed_at = _snapshot_postgres_values(raw, request, observed_at)
         prepared=_recheck(request)
         if not _utc(observed_at) or observed_at<prepared.observed_at:raise ValueError
         parts,stored=_receipt(raw,prepared.intent)
@@ -100,6 +117,8 @@ def parse_stored_detached_proposal(raw,request,*,observed_at):
 def parse_reopened_detached_proposal(raw,intent,extraction,*,observed_at):
     """Fresh full artifact + four newly read parts and independent pre-write intent."""
     try:
+        raw, intent, extraction, observed_at = _snapshot_postgres_values(
+            raw, intent, extraction, observed_at)
         parts,stored=_receipt(raw,intent)
         result=reobserve_detached_proposal(extraction,parts,intent,stored_at=stored.stored_at,observed_at=observed_at)
         return ReopenedStoredDetachedProposal(result,stored,raw,observed_at)

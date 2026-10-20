@@ -1,4 +1,46 @@
+Public development overview: [current status](../docs/public/STATUS.md). Internal historical laboratory guides linked below are intentionally not distributed.
+
 # TerraFracta
+
+## 2026-10-20T11:38:57.093776+00:00 — Owned direct inventory, original reopening and historical references
+
+The proposed code-only selection is357Node/153Python modules; three new Python selectors beyond the preceding150-Python selection. Actionlint and separate static integration readback PASS; registration is not whole/hosted execution. This package changes Python worker/test and selector inputs; earlier dated web build evidence retains its own scope, with no new typecheck/build. Policy, pins, permissions and private-wrapper hold remain unchanged. [Checks](../docs/TF_LOCAL_ORIGINAL_REOPENING_20261020.md).
+
+## 2026-10-20T11:15:25.780441+00:00 — Owned plain-document pilot chain and private preparation readers
+
+The proposed code-only selection is357Node/150Python modules; seven new Python selectors beyond the preceding143-Python selection. Actionlint and separate static integration readback PASS; registration is not whole/hosted execution. This package changes Python worker/test and selector inputs; earlier dated web build evidence retains its own scope, with no new typecheck/build. Policy, pins, permissions and private-wrapper hold remain unchanged. [Checks](../docs/TF_LOCAL_PLAIN_PILOT_CHAIN_20261020.md).
+
+## 2026-10-20T10:29:09.320309+00:00 — Owned HTML reading and detached-proposal entry points
+
+The proposed code-only selection is357Node/143Python modules; one new Python selector beyond the preceding142-Python selection. Actionlint and separate static integration readback PASS; registration is not whole/hosted execution. Current559 web inputs retain their earlier build binding; no new typecheck/build. Policy, pins, permissions and private-wrapper hold remain unchanged. [Checks](../docs/TF_LOCAL_HTML_READING_ENTRY_20261020.md).
+
+## 2026-10-20T10:17:03.292829+00:00 — Owned detached HTML preparation and historical reopen
+
+The proposed code-only selection is357Node/142Python modules; one new Python selector beyond the preceding141-Python selection. Actionlint and separate static integration readback PASS; registration is not whole/hosted execution. Current559 web inputs retain their earlier build binding; no new typecheck/build. Policy, pins, permissions and private-wrapper hold remain unchanged. [Checks](../docs/TF_LOCAL_HTML_PREPARATION_PARENTS_20261020.md).
+
+## 2026-10-20T10:05:21.298579+00:00 — Manual quote preparation and owned HTML parent requests
+
+The proposed code-only selection is357Node/141Python modules; five new Python selectors across the four linked packages. Actionlint and separate static integration readback PASS; registration is not whole/hosted execution. Current559 web inputs retain their earlier build binding; no new typecheck/build. Policy, pins, permissions and private-wrapper hold remain unchanged. [Checks](../docs/TF_LOCAL_QUOTE_COMMAND_AND_HTML_PARENTS_20261020.md).
+
+## 2026-10-20T09:29:36.428569+00:00 — Exact quote preparation and complete document request snapshots
+
+The proposed local code-only selection is357Node/136Python modules, with exactly two added Python selectors restoring the previous workflow bytes when removed. Actionlint and separate static current/source/policy/closure readback PASS. No web inputs changed and no new type/build or whole/hosted run was executed. Policy, pins, read-only permissions, private wrapper hold and all operational flags remain unchanged. No public source push or deployment.
+
+## 2026-10-20T09:03:20.837088+00:00 — Earlier feed metadata and callback-safe document snapshots
+
+The proposed local code-only workflow adds one Node and two Python selectors:357Node/134Python unique existing modules. Removing exactly those three tokens restores the preceding workflow bytes. Public policy, pins, read-only permissions and private-wrapper test hold stay unchanged; static public closure/control readback PASS. Selection is not whole/hosted execution, and no source distribution, deployment, source/model call or schedule activation occurred.
+
+## 2026-10-20T08:44:15.733708+00:00 — Whole-project completion map and four-axis source-health filters
+
+The local proposed code-only selection is356Node/132Python modules. Exactly one new Node selector removes to the preceding355/132 workflow bytes; permissions/action pins/public policy stay unchanged. Static control/readback and local type/build do not constitute whole/hosted CI or public disclosure review. The private wrapper-dependent test stays excluded. No source push, deployment, source collection, provider or schedule activation occurred.
+
+## 2026-10-20T08:15:15.357327+00:00 — Gathered preparation, receipt-language navigation and PDF cleanup
+
+The local proposed code-only workflow now selects355Node/132Python modules. Exactly6Node+1Python tokens remove to the prior349/131 workflow bytes; actionlint and separate final source/control readback PASS. No whole/hosted CI, source distribution, deployment, provider, live source or schedule activation occurred. Existing policy/permissions/pins and the private-wrapper untracked hold remain unchanged. Future public updates require owner authorization and exact disclosure review.
+
+## 2026-10-20T07:39:16.127333+00:00 — Local validation, private diagnostics and owned cleanup
+
+Local proposed registration is349Node/131Python selectors, with actionlint and bounded import-closure checks PASS. The private wrapper-dependent test is not selected. No hosted run, source disclosure approval or public push is included in this continuation; the last published source update above retains its dated scope. Policy, permissions, pins, inactive operational flags and deployment authority remain unchanged.
 
 ## Curated source update — 2026-10-19
 

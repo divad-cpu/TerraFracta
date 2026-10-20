@@ -9,12 +9,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from workers.html_original_custody import (
-    HtmlOriginalReopenExpected, StoredHtmlOriginal, reopen_html_original,
+    HtmlOriginalReopenExpected, HtmlOriginalIntent, StoredHtmlOriginal, reopen_html_original,
 )
 from workers.html_passage_comparison import (
     HtmlPassageCapture, HtmlPassageComparison, compare_html_passages,
 )
-from workers.html_extraction_request import OfflineHtmlExtractionRequest, compile_html_extraction_request
+from workers.html_extraction_request import OfflineHtmlExtractionRequest, compile_html_extraction_request, _REQUEST_RECORDS
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 
 
 class StoredHtmlChangeError(ValueError):
@@ -38,6 +39,13 @@ class StoredHtmlExtractionPlan:
     evidence_state: str = 'invented_retained_html_pair_offline_request_only'
 
 
+_ORIGINAL_RECORDS = _REQUEST_RECORDS + (HtmlOriginalReopenExpected, HtmlOriginalIntent)
+
+
+def _snapshot_original_values(*values):
+    return thaw_input(freeze_input(values, _ORIGINAL_RECORDS))
+
+
 def _capture(receipt, expected, observed_at):
     if type(receipt) is not bytes or type(expected) is not HtmlOriginalReopenExpected:
         raise ValueError
@@ -49,6 +57,11 @@ def prepare_stored_html_change(current_receipt: bytes, current_expected: HtmlOri
         previous_receipt: bytes, previous_expected: HtmlOriginalReopenExpected, *, observed_at: datetime) -> StoredHtmlChange:
     """No caller-built bound snapshot substitutes for either exact stored original."""
     try:
+        try:
+            current_receipt, current_expected, previous_receipt, previous_expected, observed_at = _snapshot_original_values(
+                current_receipt, current_expected, previous_receipt, previous_expected, observed_at)
+        except Exception:
+            raise StoredHtmlChangeError('stored_html_change_unavailable') from None
         current, now = _capture(current_receipt, current_expected, observed_at)
         previous, before = _capture(previous_receipt, previous_expected, observed_at)
         compared = compare_html_passages(now, before, observed_at=observed_at)
@@ -62,6 +75,11 @@ def compile_stored_html_request(current_receipt: bytes, current_expected: HtmlOr
         observed_at: datetime, maximum_output_tokens: int) -> StoredHtmlExtractionPlan:
     """Reopen both receipts anew; unchanged selected text has no request."""
     try:
+        try:
+            current_receipt, current_expected, previous_receipt, previous_expected, observed_at, maximum_output_tokens = _snapshot_original_values(
+                current_receipt, current_expected, previous_receipt, previous_expected, observed_at, maximum_output_tokens)
+        except Exception:
+            raise StoredHtmlChangeError('stored_html_request_unavailable') from None
         change = prepare_stored_html_change(current_receipt, current_expected,
             previous_receipt, previous_expected, observed_at=observed_at)
         request = compile_html_extraction_request(change.current_capture, change.previous_capture,

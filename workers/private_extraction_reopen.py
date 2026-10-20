@@ -13,7 +13,8 @@ from workers.document_result_reopen import ReopenedDocumentResult
 from workers.reopened_document_change import prepare_reopened_document_change
 from workers.passage_extraction_request import OfflineExtractionRequest, _regenerate
 from workers.model_proposal import MAX_OUTPUT_BYTES
-from workers.private_extraction_result import PrivateExtractionResult, prepare_private_extraction_result, _canonical, _document_ref
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
+from workers.private_extraction_result import PrivateExtractionResult, prepare_private_extraction_result, _canonical, _document_ref, _PRIVATE_RESULT_RECORDS
 from workers.private_extraction_postgres import (PrivateExtractionStoreRequest, StoredPrivateExtractionResult,
     prepare_private_extraction_store, parse_stored_private_extraction_result)
 from workers.closed_pair_channel import _json as strict_json
@@ -36,8 +37,8 @@ class PrivateExtractionReopenRequest:
     canonical_input: bytes = field(repr=False)
 
     def statement(self):
-        _recheck(self)
-        return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_private_extraction.result_receipt("+_literal(self.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
+        checked = _recheck(self)
+        return HEAD+"set time zone 'UTC';begin isolation level repeatable read read only;select tf_private_extraction.result_receipt("+_literal(checked.operation_id)+"::uuid);commit;\n\\echo "+COMMIT_MARKER.decode()+'\n'
 
 
 @dataclass(frozen=True)
@@ -51,14 +52,29 @@ class ReopenedPrivateExtractionResult:
     evidence_state: str = 'invented_private_extraction_reopened_still_unverified'
 
 
+_REOPEN_RECORDS = _PRIVATE_RESULT_RECORDS + (PrivateExtractionReopenRequest,
+    ReopenedPrivateExtractionResult, PrivateExtractionStoreRequest, StoredPrivateExtractionResult)
+
+
+def _snapshot_reopen_values(*values):
+    return thaw_input(freeze_input(values, _REOPEN_RECORDS))
+
+
 def prepare_private_extraction_reopen(current, current_receipt, previous, previous_receipt, *,
         request, operation_id, maximum_output_tokens, observed_at):
     try:
+        try:
+            (current, current_receipt, previous, previous_receipt, request, operation_id,
+                maximum_output_tokens, observed_at) = _snapshot_reopen_values(
+                    current, current_receipt, previous, previous_receipt, request, operation_id,
+                    maximum_output_tokens, observed_at)
+        except Exception:
+            raise PrivateExtractionReopenError('private_extraction_reopen_unavailable') from None
         if not _uuid(operation_id) or not _utc(observed_at): raise ValueError
         pair=prepare_reopened_document_change(current,current_receipt,previous,previous_receipt,observed_at=observed_at)
         if (current.result_request.operation_id == previous.result_request.operation_id
                 or current.artifact_id == previous.artifact_id): raise ValueError
-        _regenerate(request,pair.current,pair.previous,observed_at,maximum_output_tokens)
+        request, _ = _regenerate(request,pair.current,pair.previous,observed_at,maximum_output_tokens)
         body=_canonical(dict(operation_id=operation_id,current_document=_document_ref(current),
             previous_document=_document_ref(previous),request_sha256=request.request_sha256,
             selected_payload_sha256=request.selected_payload_sha256,maximum_output_tokens=maximum_output_tokens))
@@ -71,6 +87,10 @@ def prepare_private_extraction_reopen(current, current_receipt, previous, previo
 def _recheck(expected):
     if type(expected) is not PrivateExtractionReopenRequest or type(expected.canonical_input) is not bytes:
         raise PrivateExtractionReopenError('private_extraction_reopen_unavailable')
+    try:
+        expected, = _snapshot_reopen_values(expected)
+    except Exception:
+        raise PrivateExtractionReopenError('private_extraction_reopen_unavailable') from None
     checked=prepare_private_extraction_reopen(expected.current,expected.current_receipt,expected.previous,expected.previous_receipt,
         request=expected.request,operation_id=expected.operation_id,maximum_output_tokens=expected.maximum_output_tokens,
         observed_at=expected.observed_at)
@@ -81,7 +101,11 @@ def _recheck(expected):
 def parse_reopened_private_extraction(raw, expected, *, observed_at):
     """Reparse newly read output; a stored proposal object is never adopted."""
     try:
-        _recheck(expected)
+        try:
+            raw, expected, observed_at = _snapshot_reopen_values(raw, expected, observed_at)
+        except Exception:
+            raise PrivateExtractionReopenError('private_extraction_reopen_unavailable') from None
+        expected = _recheck(expected)
         if (type(raw) is not bytes or not 1<=len(raw)<=MAX_CAPTURE_OUTPUT or not _utc(observed_at)
                 or observed_at<expected.observed_at): raise ValueError
         value=strict_json(raw)

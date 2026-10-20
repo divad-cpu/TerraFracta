@@ -57,7 +57,7 @@ for (const kind of ["unconfigured", "unavailable", "not_found", "capture_missing
 
 test("native proposal acceptance rejects enabled fields, submit controls, foreign labels, forms and private disclosure", async () => {
   for (const mutate of [
-    html => html.replace('disabled=""', ""),
+    html => html.replace(/(<details class="issue-scope-preparation"[\s\S]*?) disabled=""/, "$1"),
     html => html.replace(/(<button\b[^>]*?) disabled=""/, "$1"),
     html => html.replace('type="button"', 'type="submit"'),
     html => html.replace("Review scope draft", "Approve publication"),

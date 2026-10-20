@@ -9,9 +9,16 @@ from datetime import datetime
 from hashlib import sha256
 import base64
 
-from workers.html_original_custody import HtmlOriginalReopenExpected
+from workers.html_original_custody import HtmlOriginalReopenExpected, StoredHtmlOriginal
+from workers.html_passage_binding import BoundHtmlPassages, HtmlSelectedSpan
+from workers.html_passage_comparison import HtmlPassageComparison
+from workers.passage_model_plan import PassageChange
+from workers.prose_passage_selection import Passage, PassageSnapshot, PassageSelection
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
 from workers.html_extraction_request import OfflineHtmlExtractionRequest, parse_html_extraction_proposal
-from workers.stored_html_change import StoredHtmlExtractionPlan, compile_stored_html_request
+from workers.stored_html_change import (
+    StoredHtmlExtractionPlan, StoredHtmlChange, compile_stored_html_request, _ORIGINAL_RECORDS,
+)
 from workers.model_proposal import ModelProposal
 from workers.feed_postgres_contract import _uuid, _utc, _time
 from workers.passage_extraction_request import _canonical
@@ -40,6 +47,16 @@ class HtmlPrivateExtraction:
     evidence_state: str = 'invented_retained_html_exact_request_output_unverified_unstored'
 
 
+_PRIVATE_RECORDS = _ORIGINAL_RECORDS + (HtmlPrivateExtraction, StoredHtmlOriginal,
+    StoredHtmlExtractionPlan, StoredHtmlChange, BoundHtmlPassages, HtmlSelectedSpan,
+    HtmlPassageComparison, PassageChange, Passage, PassageSnapshot, PassageSelection,
+    ModelProposal)
+
+
+def _snapshot_private_values(*values):
+    return thaw_input(freeze_input(values, _PRIVATE_RECORDS))
+
+
 def _original(stored):
     return dict(operation_id=stored.operation_id, artifact_id=stored.artifact_id,
         stored_at=_time(stored.stored_at), source_version_id=stored.result.document.source_version_id,
@@ -54,6 +71,14 @@ def prepare_html_private_extraction(current_receipt: bytes, current_expected: Ht
         prepared_at: datetime, observed_at: datetime, maximum_output_tokens: int) -> HtmlPrivateExtraction:
     """The preparer independently supplies immutable intent time and both vintages."""
     try:
+        try:
+            (current_receipt, current_expected, previous_receipt, previous_expected,
+             request, output_raw, operation_id, prepared_at, observed_at,
+             maximum_output_tokens) = _snapshot_private_values(
+                current_receipt, current_expected, previous_receipt, previous_expected,
+                request, output_raw, operation_id, prepared_at, observed_at, maximum_output_tokens)
+        except Exception:
+            raise HtmlPrivateExtractionError('html_private_extraction_unavailable') from None
         if not _uuid(operation_id) or not _utc(prepared_at) or not _utc(observed_at) or prepared_at > observed_at:
             raise ValueError
         plan = compile_stored_html_request(current_receipt, current_expected, previous_receipt,
@@ -87,6 +112,10 @@ def recheck_html_private_extraction(expected: HtmlPrivateExtraction) -> HtmlPriv
     try:
         if type(expected) is not HtmlPrivateExtraction or type(expected.canonical_input) is not bytes:
             raise ValueError
+        try:
+            expected, = _snapshot_private_values(expected)
+        except Exception:
+            raise HtmlPrivateExtractionError('html_private_extraction_unavailable') from None
         checked = prepare_html_private_extraction(expected.current_receipt, expected.current_expected,
             expected.previous_receipt, expected.previous_expected, request=expected.plan.request,
             output_raw=expected.output_raw, operation_id=expected.operation_id, prepared_at=expected.prepared_at,

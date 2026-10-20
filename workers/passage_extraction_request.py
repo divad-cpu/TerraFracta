@@ -11,11 +11,15 @@ from hashlib import sha256
 import json
 from re import fullmatch
 
+from workers.dispatch_input_snapshot import freeze_input, thaw_input
+from workers.document_passage_binding import (
+    PlainDocumentReceipt, DocumentPassageBinding, DocumentSpanMap, DocumentByteSpan,
+)
 from workers.document_passage_comparison import (
     DocumentPassageCapture, DocumentPassageComparison, compare_document_passages,
 )
 from workers.model_cost_budget import MAX_TOKEN_LIMIT
-from workers.model_proposal import FIELDS, CLAIM_TYPES, MAX_OUTPUT_BYTES, ModelProposal
+from workers.model_proposal import FIELDS, CLAIM_TYPES, MAX_OUTPUT_BYTES, ModelProposal, ModelProposalError
 from workers.passage_model_plan import PassageTokenLimit
 from workers.passage_model_proposal import parse_changed_passage_proposal
 
@@ -84,7 +88,21 @@ def _output_schema(payload):
             'required': sorted(FIELDS), 'properties': properties}
 
 
+_REQUEST_RECORDS = (OfflineExtractionRequest, FullRequestTokenLimit,
+    DocumentPassageCapture, PlainDocumentReceipt, DocumentPassageBinding,
+    DocumentSpanMap, DocumentByteSpan)
+
+
+def _snapshot_request_values(*values):
+    return thaw_input(freeze_input(values, _REQUEST_RECORDS))
+
+
 def _compile(current, previous, observed_at, maximum_output_tokens):
+    try:
+        current, previous, observed_at, maximum_output_tokens = _snapshot_request_values(
+            current, previous, observed_at, maximum_output_tokens)
+    except Exception:
+        raise ExtractionRequestError('extraction_request_unavailable') from None
     if not _tokens(maximum_output_tokens):
         raise ExtractionRequestError('extraction_output_token_limit_invalid')
     compared = compare_document_passages(current, previous, observed_at=observed_at)
@@ -117,6 +135,11 @@ def compile_extraction_request(current: DocumentPassageCapture,
 
 def _regenerate(request, current, previous, observed_at, maximum_output_tokens):
     try:
+        try:
+            request, current, previous, observed_at, maximum_output_tokens = _snapshot_request_values(
+                request, current, previous, observed_at, maximum_output_tokens)
+        except Exception:
+            raise ExtractionRequestError('extraction_request_binding_mismatch') from None
         if (type(request) is not OfflineExtractionRequest or type(request.body) is not bytes
                 or any(type(value) is not str for value in (request.item_key, request.request_sha256,
                     request.selected_payload_sha256, request.evidence_state))
@@ -127,7 +150,7 @@ def _regenerate(request, current, previous, observed_at, maximum_output_tokens):
         # every metadata field against independently supplied original inputs.
         if request != expected or type(request.body) is not bytes:
             raise ValueError
-        return compared
+        return expected, compared
     except (ValueError, TypeError, AttributeError, KeyError, UnicodeError, OverflowError):
         raise ExtractionRequestError('extraction_request_binding_mismatch') from None
 
@@ -143,7 +166,12 @@ def bind_full_request_token_limit(request: OfflineExtractionRequest, *,
     A real adapter must separately prove its complete provider request fits this
     bound; this pure function cannot establish that missing operational fact.
     """
-    _regenerate(request, current, previous, observed_at, maximum_output_tokens)
+    try:
+        request, current, previous, observed_at, maximum_output_tokens, proof = _snapshot_request_values(
+            request, current, previous, observed_at, maximum_output_tokens, proof)
+    except Exception:
+        raise ExtractionRequestError('extraction_full_token_binding_mismatch') from None
+    request, _ = _regenerate(request, current, previous, observed_at, maximum_output_tokens)
     if (type(proof) is not FullRequestTokenLimit or type(proof.item_key) is not str
             or proof.item_key != request.item_key or type(proof.request_sha256) is not str
             or fullmatch(r'[0-9a-f]{64}', proof.request_sha256) is None
@@ -157,8 +185,15 @@ def parse_extraction_request_proposal(raw: bytes, request: OfflineExtractionRequ
         current: DocumentPassageCapture, previous: DocumentPassageCapture | None,
         observed_at: datetime, maximum_output_tokens: int) -> ModelProposal:
     """The exact complete request still produces only an unverified proposal."""
-    compared: DocumentPassageComparison = _regenerate(
-        request, current, previous, observed_at, maximum_output_tokens)
+    # Preserve the output parser refusal before invoking any request clock.
+    if type(raw) is not bytes or not raw or len(raw) > MAX_OUTPUT_BYTES:
+        raise ModelProposalError("Model output size is invalid")
+    try:
+        raw, request, current, previous, observed_at, maximum_output_tokens = _snapshot_request_values(
+            raw, request, current, previous, observed_at, maximum_output_tokens)
+    except Exception:
+        raise ExtractionRequestError('extraction_request_binding_mismatch') from None
+    request, compared = _regenerate(request, current, previous, observed_at, maximum_output_tokens)
     return parse_changed_passage_proposal(raw, current=compared.current.snapshot,
         previous=None if compared.previous is None else compared.previous.snapshot,
         expected_payload_sha256=request.selected_payload_sha256)
